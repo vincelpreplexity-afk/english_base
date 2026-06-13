@@ -2,6 +2,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { NavLinks } from '@/components/layout/nav-links'
 import { LogoutButton } from '@/components/layout/logout-button'
+import { MobileMenu } from '@/components/layout/mobile-menu'
 
 async function logout() {
   'use server'
@@ -17,10 +18,10 @@ export default function AppLayout({
 }) {
   return (
     <div className="flex h-dvh bg-stone-50">
-      {/* Sidebar — desktop */}
+      {/* Sidebar — desktop only */}
       <aside className="hidden lg:flex w-[220px] shrink-0 flex-col border-r border-stone-200 bg-white">
         <div className="px-5 py-4 border-b border-stone-200">
-          <span className="font-heading text-[13px] font-semibold tracking-tight text-stone-900">
+          <span className="font-heading text-base font-semibold text-stone-900">
             English Base
           </span>
         </div>
@@ -32,12 +33,20 @@ export default function AppLayout({
         </div>
       </aside>
 
-      {/* Page content */}
-      <main className="flex-1 overflow-y-auto pb-16 lg:pb-0">
+      {/* Mobile top bar */}
+      <div className="fixed top-0 left-0 right-0 z-40 flex h-12 items-center justify-between border-b border-stone-200 bg-white/95 backdrop-blur-sm px-4 lg:hidden">
+        <span className="font-heading text-sm font-semibold text-stone-900">
+          English Base
+        </span>
+        <MobileMenu action={logout} />
+      </div>
+
+      {/* Page content — offset for mobile top bar */}
+      <main className="flex-1 overflow-y-auto pt-12 pb-16 lg:pt-0 lg:pb-0">
         {children}
       </main>
 
-      {/* Bottom nav — mobile */}
+      {/* Bottom nav — mobile only */}
       <NavLinks mobile />
     </div>
   )
