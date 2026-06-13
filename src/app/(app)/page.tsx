@@ -25,7 +25,7 @@ export default async function DashboardPage() {
   ] = await Promise.all([
     supabase
       .from('lessons')
-      .select('id, scheduled_at, duration_min, students(name)')
+      .select('id, scheduled_at, duration_min, is_paid, students(name)')
       .eq('status', 'scheduled')
       .gte('scheduled_at', start)
       .lte('scheduled_at', end)
@@ -50,6 +50,7 @@ export default async function DashboardPage() {
     id: string
     scheduled_at: string
     duration_min: number
+    is_paid: boolean
     students: { name: string } | null
   }[]
 

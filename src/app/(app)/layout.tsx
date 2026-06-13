@@ -42,7 +42,7 @@ export default function AppLayout({
       </div>
 
       {/* Page content — offset for mobile top bar */}
-      <main className="flex-1 overflow-y-auto pt-12 pb-16 lg:pt-0 lg:pb-0">
+      <main className="flex-1 overflow-y-auto pt-12 pb-24 lg:pt-0 lg:pb-0">
         {children}
       </main>
 

@@ -1,9 +1,11 @@
 import { addMinutes, format } from 'date-fns'
+import TodayPayToggle from './today-pay-toggle'
 
 type Lesson = {
   id: string
   scheduled_at: string
   duration_min: number
+  is_paid: boolean
   students: { name: string } | null
 }
 
@@ -31,7 +33,10 @@ export function TodayWidget({ lessons }: { lessons: Lesson[] }) {
                 {format(start, 'HH:mm')} – {format(end, 'HH:mm')}
               </p>
             </div>
-            <span className="text-xs text-stone-400 shrink-0">{l.duration_min} мин</span>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-xs text-stone-400">{l.duration_min} мин</span>
+              <TodayPayToggle lessonId={l.id} isPaid={l.is_paid} />
+            </div>
           </li>
         )
       })}

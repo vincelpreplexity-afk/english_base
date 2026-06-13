@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useMemo, useCallback, useEffect, useTransition } from 'react'
 import { Calendar, dateFnsLocalizer, type View, type SlotInfo } from 'react-big-calendar'
 import { format, parse, startOfWeek, getDay, addMinutes } from 'date-fns'
 import { ru } from 'date-fns/locale'
@@ -8,7 +8,13 @@ import { useRouter } from 'next/navigation'
 import { CaretLeft, CaretRight, X, Trash } from '@phosphor-icons/react'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 
-import { createLesson, updateLesson, cancelLesson } from '@/app/(app)/schedule/actions'
+import {
+  createLesson,
+  createRecurringLessons,
+  updateLesson,
+  cancelLesson,
+  toggleLessonPaid,
+} from '@/app/(app)/schedule/actions'
 import { Button } from '@/components/ui/button'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -20,6 +26,7 @@ type Lesson = {
   duration_min: number
   status: 'scheduled' | 'completed' | 'cancelled'
   notes: string | null
+  is_paid: boolean
   students: { name: string }[] | null
 }
 
@@ -30,7 +37,7 @@ type CalEvent = {
   title: string
   start: Date
   end: Date
-  resource: { studentId: string; status: string; notes: string | null }
+  resource: { studentId: string; status: string; notes: string | null; isPaid: boolean }
 }
 
 // ─── Localizer ───────────────────────────────────────────────────────────────
@@ -64,6 +71,11 @@ const messages = {
 function toInputValue(d: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+function toDateValue(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
 const INPUT_CLS =
@@ -187,6 +199,8 @@ function CreateModal({
   const [startVal, setStartVal] = useState(toInputValue(start))
   const [endVal, setEndVal] = useState(toInputValue(end))
   const [notes, setNotes] = useState('')
+  const [repeatWeekly, setRepeatWeekly] = useState(false)
+  const [untilDate, setUntilDate] = useState(toDateValue(start))
   const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
 
@@ -197,10 +211,22 @@ function CreateModal({
       setError('Время окончания должно быть позже начала')
       return
     }
+    if (repeatWeekly && !untilDate) {
+      setError('Укажите дату окончания повторений')
+      return
+    }
+    if (repeatWeekly && new Date(untilDate) < new Date(startVal.split('T')[0])) {
+      setError('Дата окончания не может быть раньше начала')
+      return
+    }
     setPending(true)
     setError('')
     try {
-      await createLesson(studentId, startVal, endVal, notes)
+      if (repeatWeekly) {
+        await createRecurringLessons(studentId, startVal, endVal, untilDate, notes)
+      } else {
+        await createLesson(studentId, startVal, endVal, notes)
+      }
       onDone()
       onClose()
     } catch {
@@ -263,6 +289,30 @@ function CreateModal({
           />
         </div>
 
+        <label className="flex items-center gap-2.5 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={repeatWeekly}
+            onChange={(e) => setRepeatWeekly(e.target.checked)}
+            className="size-4 rounded border-stone-300 text-accent accent-[--color-accent] cursor-pointer"
+          />
+          <span className="text-sm text-stone-700">Повторять еженедельно</span>
+        </label>
+
+        {repeatWeekly && (
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-stone-600 block">До какой даты</label>
+            <input
+              type="date"
+              value={untilDate}
+              onChange={(e) => setUntilDate(e.target.value)}
+              min={startVal.split('T')[0]}
+              className={INPUT_CLS}
+              required={repeatWeekly}
+            />
+          </div>
+        )}
+
         {error && <p className="text-xs text-red-600">{error}</p>}
 
         <div className="flex gap-2 pt-1">
@@ -270,7 +320,7 @@ function CreateModal({
             Отмена
           </Button>
           <Button type="submit" className="flex-1" disabled={pending}>
-            {pending ? 'Сохранение…' : 'Создать'}
+            {pending ? 'Сохранение…' : repeatWeekly ? 'Создать серию' : 'Создать'}
           </Button>
         </div>
       </form>
@@ -291,9 +341,17 @@ function EditModal({
 }) {
   const [startVal, setStartVal] = useState(toInputValue(event.start))
   const [endVal, setEndVal] = useState(toInputValue(event.end))
+  const [isPaid, setIsPaid] = useState(event.resource.isPaid)
   const [pending, setPending] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [error, setError] = useState('')
+  const [, startTransition] = useTransition()
+
+  function handleTogglePaid() {
+    const next = !isPaid
+    setIsPaid(next)
+    startTransition(() => toggleLessonPaid(event.id, next))
+  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -357,6 +415,17 @@ function EditModal({
           </p>
         )}
 
+        <label className="flex items-center gap-2.5 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={isPaid}
+            onChange={handleTogglePaid}
+            className="size-4 rounded border-stone-300 cursor-pointer accent-[--color-accent]"
+          />
+          <span className="text-sm text-stone-700">Оплачено</span>
+          {isPaid && <span className="text-xs text-green-600 font-medium">✓</span>}
+        </label>
+
         {error && <p className="text-xs text-red-600">{error}</p>}
 
         <div className="flex items-center gap-2 pt-1">
@@ -411,7 +480,12 @@ export default function CalendarView({
         title: l.students?.[0]?.name ?? 'Ученик',
         start: new Date(l.scheduled_at),
         end: addMinutes(new Date(l.scheduled_at), l.duration_min),
-        resource: { studentId: l.student_id, status: l.status, notes: l.notes },
+        resource: {
+          studentId: l.student_id,
+          status: l.status,
+          notes: l.notes,
+          isPaid: l.is_paid,
+        },
       })),
     [lessons]
   )
@@ -466,16 +540,20 @@ export default function CalendarView({
           style={{ height: '100%' }}
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           components={{ toolbar: Toolbar as any }}
-          eventPropGetter={() => ({
-            style: {
-              backgroundColor: '#3C6B4D',
-              borderColor: '#3C6B4D',
-              color: '#fff',
-              borderRadius: '6px',
-              fontSize: '12px',
-              border: 'none',
-            },
-          })}
+          eventPropGetter={(event) => {
+            const ev = event as CalEvent
+            const bg = ev.resource.isPaid ? '#3B7A57' : '#5C3D6C'
+            return {
+              style: {
+                backgroundColor: bg,
+                borderColor: bg,
+                color: '#fff',
+                borderRadius: '6px',
+                fontSize: '12px',
+                border: 'none',
+              },
+            }
+          }}
         />
       </div>
 
