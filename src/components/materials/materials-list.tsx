@@ -1,13 +1,40 @@
 'use client'
 
-import { useState, useTransition, useMemo, useEffect } from 'react'
+import { useState, useTransition, useMemo, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { deleteMaterial } from '@/app/(app)/materials/actions'
+import {
+  BookOpen, Book, GraduationCap, NotePencil, PenNib,
+  Globe, Headphones, Microphone, Translate, Brain,
+  Lightbulb, Trophy, MusicNote, VideoCamera, Newspaper,
+  Palette, Star, Bookmark, Chalkboard, Backpack,
+} from '@phosphor-icons/react'
+import { deleteMaterial, setCategoryIcon } from '@/app/(app)/materials/actions'
 import AddMaterialModal from './add-material-modal'
 
 const LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1'] as const
 const IMAGE_EXTS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp'])
 const NO_CATEGORY = '__none__'
+const DEFAULT_ICON = 'BookOpen'
+
+// ─── Icon registry ────────────────────────────────────────────────────────────
+
+type PhosphorIcon = React.ComponentType<{ size?: number; weight?: 'regular' | 'bold' | 'fill' | 'duotone'; className?: string }>
+
+const ICON_MAP: Record<string, PhosphorIcon> = {
+  BookOpen, Book, GraduationCap, NotePencil, PenNib,
+  Globe, Headphones, Microphone, Translate, Brain,
+  Lightbulb, Trophy, MusicNote, VideoCamera, Newspaper,
+  Palette, Star, Bookmark, Chalkboard, Backpack,
+}
+
+const ICON_NAMES = Object.keys(ICON_MAP)
+
+function CategoryIcon({ name, size = 24 }: { name: string; size?: number }) {
+  const Icon = ICON_MAP[name] ?? ICON_MAP[DEFAULT_ICON]
+  return <Icon size={size} weight="duotone" />
+}
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 type Material = {
   id: string
@@ -20,14 +47,15 @@ type Material = {
   downloadUrl: string | null
 }
 
+type CategoryDef = { name: string; icon: string }
 type ViewMode = 'folders' | 'list'
 
 type Props = {
   materials: Material[]
-  categories: string[]
+  categories: CategoryDef[]
 }
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function getExt(url: string | null) {
   return url?.split('.').pop()?.toLowerCase() ?? ''
@@ -46,7 +74,7 @@ function fileIcon(m: Material) {
   return '📄'
 }
 
-// ─── Level badge ─────────────────────────────────────────────────────────────
+// ─── Level badge ──────────────────────────────────────────────────────────────
 
 function LevelBadge({ level }: { level: string }) {
   const colors: Record<string, string> = {
@@ -130,7 +158,6 @@ function MaterialCard({
   return (
     <>
       <div className="bg-white rounded-xl border border-stone-200 flex flex-col overflow-hidden hover:border-stone-300 transition-colors">
-        {/* Image preview */}
         {img && material.signedUrl ? (
           <button
             type="button"
@@ -138,11 +165,7 @@ function MaterialCard({
             className="block w-full aspect-[4/3] overflow-hidden bg-stone-100 relative group"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={material.signedUrl}
-              alt={material.title}
-              className="w-full h-full object-cover"
-            />
+            <img src={material.signedUrl} alt={material.title} className="w-full h-full object-cover" />
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
               <span className="opacity-0 group-hover:opacity-100 transition-opacity text-white text-xs font-medium bg-black/50 px-3 py-1.5 rounded-full">
                 Увеличить
@@ -150,28 +173,19 @@ function MaterialCard({
             </div>
           </button>
         ) : (
-          /* Doc/link icon area */
           <div className="w-full aspect-[4/3] bg-stone-50 flex flex-col items-center justify-center gap-2 border-b border-stone-100">
             <span className="text-4xl">{icon}</span>
             {openUrl ? (
-              <a
-                href={openUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-accent font-medium hover:underline"
-              >
+              <a href={openUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-accent font-medium hover:underline">
                 Открыть ↗
               </a>
             ) : null}
           </div>
         )}
 
-        {/* Info */}
         <div className="p-3 flex flex-col gap-2 flex-1">
           <div className="flex items-start justify-between gap-2">
-            <p className="text-sm font-semibold text-stone-900 leading-tight line-clamp-2 flex-1">
-              {material.title}
-            </p>
+            <p className="text-sm font-semibold text-stone-900 leading-tight line-clamp-2 flex-1">{material.title}</p>
             {material.level && <LevelBadge level={material.level} />}
           </div>
           {showCategory && material.category && (
@@ -179,28 +193,18 @@ function MaterialCard({
           )}
         </div>
 
-        {/* Actions */}
         <div className="px-3 pb-3 flex gap-2">
           {material.type === 'file' && material.downloadUrl ? (
-            <a
-              href={material.downloadUrl}
-              className="flex-1 text-center rounded-lg bg-accent/10 text-accent text-xs font-medium py-2 hover:bg-accent/20 transition-colors"
-            >
+            <a href={material.downloadUrl} className="flex-1 text-center rounded-lg bg-accent/10 text-accent text-xs font-medium py-2 hover:bg-accent/20 transition-colors">
               Скачать ↓
             </a>
           ) : material.type === 'link' && material.url ? (
-            <a
-              href={material.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex-1 text-center rounded-lg bg-accent/10 text-accent text-xs font-medium py-2 hover:bg-accent/20 transition-colors"
-            >
+            <a href={material.url} target="_blank" rel="noopener noreferrer" className="flex-1 text-center rounded-lg bg-accent/10 text-accent text-xs font-medium py-2 hover:bg-accent/20 transition-colors">
               Открыть ↗
             </a>
           ) : (
             <span className="flex-1" />
           )}
-
           <button
             onClick={handleDelete}
             disabled={deleting}
@@ -212,11 +216,7 @@ function MaterialCard({
       </div>
 
       {lightboxOpen && material.signedUrl && (
-        <ImageLightbox
-          src={material.signedUrl}
-          title={material.title}
-          onClose={() => setLightboxOpen(false)}
-        />
+        <ImageLightbox src={material.signedUrl} title={material.title} onClose={() => setLightboxOpen(false)} />
       )}
     </>
   )
@@ -224,23 +224,97 @@ function MaterialCard({
 
 // ─── Folder card ──────────────────────────────────────────────────────────────
 
-function FolderCard({ name, count, onClick }: { name: string; count: number; onClick: () => void }) {
+function FolderCard({
+  name,
+  count,
+  icon,
+  onClick,
+  onIconChange,
+}: {
+  name: string
+  count: number
+  icon: string
+  onClick: () => void
+  onIconChange?: (iconName: string) => void
+}) {
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [currentIcon, setCurrentIcon] = useState(icon)
+  const [, startTransition] = useTransition()
+  const pickerRef = useRef<HTMLDivElement>(null)
+  const isSpecial = name === NO_CATEGORY
+
+  useEffect(() => { setCurrentIcon(icon) }, [icon])
+
+  useEffect(() => {
+    if (!pickerOpen) return
+    function handleClick(e: MouseEvent) {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+        setPickerOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [pickerOpen])
+
+  function selectIcon(iconName: string) {
+    setCurrentIcon(iconName)
+    setPickerOpen(false)
+    onIconChange?.(iconName)
+    startTransition(() => setCategoryIcon(name, iconName))
+  }
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="bg-white rounded-xl border border-stone-200 p-5 flex flex-col items-start gap-3 hover:border-accent hover:shadow-sm transition-all text-left group"
-    >
-      <span className="text-3xl group-hover:scale-110 transition-transform">📁</span>
-      <div>
-        <p className="text-sm font-semibold text-stone-900 line-clamp-2">
-          {name === NO_CATEGORY ? 'Без категории' : name}
-        </p>
-        <p className="text-xs text-stone-400 mt-0.5">
-          {count} {count === 1 ? 'материал' : count < 5 ? 'материала' : 'материалов'}
-        </p>
-      </div>
-    </button>
+    <div className="relative group/folder">
+      <button
+        type="button"
+        onClick={onClick}
+        className="bg-white rounded-xl border border-stone-200 p-5 flex flex-col items-start gap-3 hover:border-accent hover:shadow-sm transition-all text-left w-full"
+      >
+        <span className="text-accent group-hover/folder:scale-110 transition-transform inline-block">
+          <CategoryIcon name={currentIcon} size={28} />
+        </span>
+        <div>
+          <p className="text-sm font-semibold text-stone-900 line-clamp-2">
+            {name === NO_CATEGORY ? 'Без категории' : name}
+          </p>
+          <p className="text-xs text-stone-400 mt-0.5">
+            {count} {count === 1 ? 'материал' : count < 5 ? 'материала' : 'материалов'}
+          </p>
+        </div>
+      </button>
+
+      {!isSpecial && (
+        <div ref={pickerRef} className="absolute top-2 right-2 z-10">
+          <button
+            type="button"
+            title="Сменить иконку"
+            onClick={e => { e.stopPropagation(); setPickerOpen(v => !v) }}
+            className="opacity-0 group-hover/folder:opacity-100 w-7 h-7 rounded-lg bg-stone-100 hover:bg-accent-subtle text-stone-400 hover:text-accent flex items-center justify-center text-xs transition-all"
+          >
+            ✎
+          </button>
+
+          {pickerOpen && (
+            <div className="absolute top-full right-0 mt-1 bg-white border border-stone-200 rounded-xl shadow-xl p-3 w-52">
+              <p className="text-xs text-stone-500 font-medium mb-2">Иконка папки</p>
+              <div className="grid grid-cols-5 gap-1">
+                {ICON_NAMES.map(n => (
+                  <button
+                    key={n}
+                    type="button"
+                    title={n}
+                    onClick={() => selectIcon(n)}
+                    className={`p-2 rounded-lg flex items-center justify-center transition-colors text-stone-500 hover:text-accent hover:bg-accent-subtle ${currentIcon === n ? 'bg-accent-subtle text-accent ring-1 ring-accent/30' : ''}`}
+                  >
+                    <CategoryIcon name={n} size={17} />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -255,9 +329,7 @@ function ViewToggle({ mode, onChange }: { mode: ViewMode; onChange: (m: ViewMode
           type="button"
           onClick={() => onChange(m)}
           className={`px-4 py-2 transition-colors ${i > 0 ? 'border-l border-stone-200' : ''} ${
-            mode === m
-              ? 'bg-accent text-white'
-              : 'bg-white text-stone-600 hover:bg-stone-50'
+            mode === m ? 'bg-accent text-white' : 'bg-white text-stone-600 hover:bg-stone-50'
           }`}
         >
           {m === 'folders' ? '📁 Папки' : '☰ Список'}
@@ -267,17 +339,9 @@ function ViewToggle({ mode, onChange }: { mode: ViewMode; onChange: (m: ViewMode
   )
 }
 
-// ─── Materials card grid ──────────────────────────────────────────────────────
+// ─── Card grid ────────────────────────────────────────────────────────────────
 
-function CardGrid({
-  items,
-  showCategory = true,
-  onDelete,
-}: {
-  items: Material[]
-  showCategory?: boolean
-  onDelete: (id: string) => void
-}) {
+function CardGrid({ items, showCategory = true, onDelete }: { items: Material[]; showCategory?: boolean; onDelete: (id: string) => void }) {
   if (items.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -297,7 +361,7 @@ function CardGrid({
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function MaterialsList({ materials: initialMaterials, categories }: Props) {
+export default function MaterialsList({ materials: initialMaterials, categories: initialCategories }: Props) {
   const router = useRouter()
   const [viewMode, setViewMode] = useState<ViewMode>('folders')
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
@@ -305,8 +369,16 @@ export default function MaterialsList({ materials: initialMaterials, categories 
   const [filterLevel, setFilterLevel] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [localMaterials, setLocalMaterials] = useState(initialMaterials)
+  const [localCategories, setLocalCategories] = useState(initialCategories)
 
   useEffect(() => { setLocalMaterials(initialMaterials) }, [initialMaterials])
+  useEffect(() => { setLocalCategories(initialCategories) }, [initialCategories])
+
+  const iconMap = useMemo(() => {
+    const m: Record<string, string> = {}
+    for (const c of localCategories) m[c.name] = c.icon
+    return m
+  }, [localCategories])
 
   function handleDelete(id: string) {
     setLocalMaterials(prev => prev.filter(m => m.id !== id))
@@ -318,7 +390,11 @@ export default function MaterialsList({ materials: initialMaterials, categories 
     router.refresh()
   }
 
-  // ── Folders view ─────────────────────────────────────────────────────────
+  function handleIconChange(catName: string, iconName: string) {
+    setLocalCategories(prev => prev.map(c => c.name === catName ? { ...c, icon: iconName } : c))
+  }
+
+  // ── Folders ───────────────────────────────────────────────────────────────
 
   const folderMap = useMemo(() => {
     const map = new Map<string, number>()
@@ -330,12 +406,11 @@ export default function MaterialsList({ materials: initialMaterials, categories 
   }, [localMaterials])
 
   const folderKeys = useMemo(() => {
-    const keys = Array.from(folderMap.keys()).sort((a, b) => {
+    return Array.from(folderMap.keys()).sort((a, b) => {
       if (a === NO_CATEGORY) return 1
       if (b === NO_CATEGORY) return -1
       return a.localeCompare(b)
     })
-    return keys
   }, [folderMap])
 
   const folderContents = useMemo(() => {
@@ -344,7 +419,9 @@ export default function MaterialsList({ materials: initialMaterials, categories 
     return localMaterials.filter(m => m.category === cat)
   }, [localMaterials, selectedCategory])
 
-  // ── List view ─────────────────────────────────────────────────────────────
+  // ── List ─────────────────────────────────────────────────────────────────
+
+  const categoryNames = useMemo(() => localCategories.map(c => c.name), [localCategories])
 
   const filteredList = useMemo(() => {
     return localMaterials.filter(m => {
@@ -360,12 +437,8 @@ export default function MaterialsList({ materials: initialMaterials, categories 
 
   return (
     <>
-      {/* Top bar: view toggle + add button */}
       <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
-        <ViewToggle
-          mode={viewMode}
-          onChange={m => { setViewMode(m); setSelectedCategory(null) }}
-        />
+        <ViewToggle mode={viewMode} onChange={m => { setViewMode(m); setSelectedCategory(null) }} />
         <button
           onClick={() => setShowModal(true)}
           className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover transition-colors whitespace-nowrap"
@@ -374,7 +447,7 @@ export default function MaterialsList({ materials: initialMaterials, categories 
         </button>
       </div>
 
-      {/* ── Folders mode ───────────────────────────────────────────────────── */}
+      {/* ── Folders grid ─────────────────────────────────────────────────── */}
       {viewMode === 'folders' && selectedCategory === null && (
         localMaterials.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -389,14 +462,16 @@ export default function MaterialsList({ materials: initialMaterials, categories 
                 key={key}
                 name={key}
                 count={folderMap.get(key) ?? 0}
+                icon={iconMap[key] ?? DEFAULT_ICON}
                 onClick={() => setSelectedCategory(key)}
+                onIconChange={iconName => handleIconChange(key, iconName)}
               />
             ))}
           </div>
         )
       )}
 
-      {/* ── Folder contents ────────────────────────────────────────────────── */}
+      {/* ── Folder contents ──────────────────────────────────────────────── */}
       {viewMode === 'folders' && selectedCategory !== null && (
         <>
           <div className="flex items-center gap-3 mb-4">
@@ -407,6 +482,11 @@ export default function MaterialsList({ materials: initialMaterials, categories 
               ← Назад
             </button>
             <span className="text-stone-300">/</span>
+            {selectedCategory !== NO_CATEGORY && (
+              <span className="text-accent">
+                <CategoryIcon name={iconMap[selectedCategory] ?? DEFAULT_ICON} size={16} />
+              </span>
+            )}
             <h2 className="text-sm font-semibold text-stone-900">
               {selectedCategory === NO_CATEGORY ? 'Без категории' : selectedCategory}
             </h2>
@@ -416,7 +496,7 @@ export default function MaterialsList({ materials: initialMaterials, categories 
         </>
       )}
 
-      {/* ── List mode ──────────────────────────────────────────────────────── */}
+      {/* ── List mode ────────────────────────────────────────────────────── */}
       {viewMode === 'list' && (
         <>
           <div className="flex flex-wrap gap-2 mb-4">
@@ -426,7 +506,7 @@ export default function MaterialsList({ materials: initialMaterials, categories 
               className="rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-700 focus:outline-none focus:ring-2 focus:ring-accent"
             >
               <option value="">Все категории</option>
-              {categories.map(c => (
+              {categoryNames.map(c => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
@@ -469,7 +549,7 @@ export default function MaterialsList({ materials: initialMaterials, categories 
       )}
 
       {showModal && (
-        <AddMaterialModal categories={categories} onClose={handleModalClose} />
+        <AddMaterialModal categories={categoryNames} onClose={handleModalClose} />
       )}
     </>
   )

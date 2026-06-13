@@ -48,6 +48,14 @@ export async function createMaterial(formData: FormData) {
   })
 
   if (error) throw new Error(error.message)
+
+  // Ensure category exists in material_categories (preserves existing icon)
+  if (category) {
+    await supabase
+      .from('material_categories')
+      .upsert({ name: category, icon: 'BookOpen' }, { onConflict: 'name', ignoreDuplicates: true })
+  }
+
   revalidatePath('/materials')
 }
 
@@ -72,5 +80,13 @@ export async function deleteMaterial(id: string) {
   const { error } = await supabase.from('materials').delete().eq('id', id)
   if (error) throw new Error(error.message)
 
+  revalidatePath('/materials')
+}
+
+export async function setCategoryIcon(name: string, icon: string) {
+  const supabase = await createClient()
+  await supabase
+    .from('material_categories')
+    .upsert({ name, icon }, { onConflict: 'name' })
   revalidatePath('/materials')
 }

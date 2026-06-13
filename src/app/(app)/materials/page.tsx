@@ -4,16 +4,21 @@ import MaterialsList from '@/components/materials/materials-list'
 export default async function MaterialsPage() {
   const supabase = await createClient()
 
-  const { data: rows } = await supabase
-    .from('materials')
-    .select('id, title, category, level, type, url')
-    .order('title', { ascending: true })
+  const [{ data: rows }, { data: categoryRows }] = await Promise.all([
+    supabase
+      .from('materials')
+      .select('id, title, category, level, type, url')
+      .order('title', { ascending: true }),
+    supabase
+      .from('material_categories')
+      .select('name, icon')
+      .order('name', { ascending: true }),
+  ])
 
   const materials = rows ?? []
+  const categories = (categoryRows ?? []) as { name: string; icon: string }[]
 
   // Generate signed URLs for file-type materials (1-hour expiry)
-  // signedUrl → for inline preview/opening
-  // downloadUrl → with Content-Disposition: attachment
   const withUrls = await Promise.all(
     materials.map(async m => {
       let signedUrl: string | null = null
@@ -35,11 +40,6 @@ export default async function MaterialsPage() {
       return { ...m, signedUrl, downloadUrl }
     })
   )
-
-  // Distinct non-null categories, sorted
-  const categories = Array.from(
-    new Set(materials.map(m => m.category).filter(Boolean) as string[])
-  ).sort()
 
   return (
     <div className="p-4 lg:p-6">
