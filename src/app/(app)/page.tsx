@@ -45,7 +45,7 @@ export default async function DashboardPage() {
       .not('category', 'is', null),
   ])
 
-  const lessons = (lessonRows ?? []) as {
+  const lessons = (lessonRows ?? []) as unknown as {
     id: string
     scheduled_at: string
     duration_min: number
