@@ -6,28 +6,36 @@ export default function LoginPage({
   searchParams: Promise<{ error?: string }>
 }) {
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="w-full max-w-sm space-y-6 p-8 bg-white rounded-2xl shadow-sm border border-gray-100">
-        <h1 className="text-xl font-semibold text-gray-900 text-center">Enter password</h1>
+    <main className="min-h-dvh flex items-center justify-center bg-stone-50 px-4">
+      <div className="w-full max-w-sm">
+        <div className="mb-8 text-center">
+          <span className="font-heading text-lg font-semibold text-stone-900">
+            English Base
+          </span>
+        </div>
 
-        <form action={login} className="space-y-4">
-          <input
-            type="password"
-            name="password"
-            placeholder="Password"
-            required
-            autoFocus
-            className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm outline-none focus:ring-2 focus:ring-black/10"
-          />
-          <button
-            type="submit"
-            className="w-full py-2.5 bg-black text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
-          >
-            Continue
-          </button>
-        </form>
+        <div className="bg-white border border-stone-200 rounded-xl p-6 space-y-4">
+          <h1 className="text-sm font-medium text-stone-700">Введите пароль</h1>
 
-        <ErrorMessage searchParams={searchParams} />
+          <form action={login} className="space-y-3">
+            <input
+              type="password"
+              name="password"
+              placeholder="Пароль"
+              required
+              autoFocus
+              className="h-9 w-full rounded-lg border border-stone-200 px-3 text-sm text-stone-900 placeholder:text-stone-400 outline-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/15"
+            />
+            <button
+              type="submit"
+              className="w-full h-9 bg-accent text-white text-sm font-medium rounded-lg hover:bg-accent-hover transition-colors active:scale-[0.98]"
+            >
+              Войти
+            </button>
+          </form>
+
+          <ErrorMessage searchParams={searchParams} />
+        </div>
       </div>
     </main>
   )
@@ -41,6 +49,8 @@ async function ErrorMessage({
   const params = await searchParams
   if (!params.error) return null
   return (
-    <p className="text-sm text-red-500 text-center">Incorrect password</p>
+    <p className="text-xs text-red-600 text-center">
+      Неверный пароль
+    </p>
   )
 }
