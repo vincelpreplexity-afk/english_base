@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import { createClient } from '@/lib/supabase/server'
 import { Card, CardHeader, CardContent } from '@/components/ui/card'
 import {
@@ -98,7 +99,7 @@ export default async function DashboardPage() {
           </Card>
         </div>
 
-        <div>
+        <div className="space-y-4 lg:space-y-5">
           <Card>
             <CardHeader>
               <DashboardActionsHeader />
@@ -107,6 +108,17 @@ export default async function DashboardPage() {
               <QuickActions students={students} materialCategories={materialCategories} />
             </CardContent>
           </Card>
+
+          <div className="rounded-xl overflow-hidden">
+            <Image
+              src="/mascot.png"
+              alt=""
+              width={1024}
+              height={1024}
+              className="w-full h-auto block"
+              priority={false}
+            />
+          </div>
         </div>
       </div>
     </div>
