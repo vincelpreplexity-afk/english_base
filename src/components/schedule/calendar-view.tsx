@@ -1,0 +1,501 @@
+'use client'
+
+import { useState, useMemo, useCallback, useEffect } from 'react'
+import { Calendar, dateFnsLocalizer, type View, type SlotInfo } from 'react-big-calendar'
+import { format, parse, startOfWeek, getDay, addMinutes } from 'date-fns'
+import { ru } from 'date-fns/locale'
+import { useRouter } from 'next/navigation'
+import { CaretLeft, CaretRight, X, Trash } from '@phosphor-icons/react'
+import 'react-big-calendar/lib/css/react-big-calendar.css'
+
+import { createLesson, updateLesson, cancelLesson } from '@/app/(app)/schedule/actions'
+import { Button } from '@/components/ui/button'
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+type Lesson = {
+  id: string
+  student_id: string
+  scheduled_at: string
+  duration_min: number
+  status: 'scheduled' | 'completed' | 'cancelled'
+  notes: string | null
+  students: { name: string }[] | null
+}
+
+type Student = { id: string; name: string; level: string | null }
+
+type CalEvent = {
+  id: string
+  title: string
+  start: Date
+  end: Date
+  resource: { studentId: string; status: string; notes: string | null }
+}
+
+// ─── Localizer ───────────────────────────────────────────────────────────────
+
+const localizer = dateFnsLocalizer({
+  format,
+  parse,
+  startOfWeek: (d: Date) => startOfWeek(d, { weekStartsOn: 1 }),
+  getDay,
+  locales: { ru },
+})
+
+const messages = {
+  allDay: 'Весь день',
+  previous: '‹',
+  next: '›',
+  today: 'Сегодня',
+  month: 'Месяц',
+  week: 'Неделя',
+  day: 'День',
+  agenda: 'Список',
+  date: 'Дата',
+  time: 'Время',
+  event: 'Занятие',
+  noEventsInRange: 'Нет занятий',
+  showMore: (n: number) => `+${n} ещё`,
+}
+
+// ─── Utils ───────────────────────────────────────────────────────────────────
+
+function toInputValue(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+const INPUT_CLS =
+  'h-9 w-full rounded-lg border border-stone-200 px-3 text-sm text-stone-900 ' +
+  'outline-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/15'
+
+// ─── Custom Toolbar ───────────────────────────────────────────────────────────
+
+type NavAction = 'PREV' | 'NEXT' | 'TODAY' | 'DATE'
+
+interface ToolbarProps {
+  label: string
+  view: View
+  onNavigate: (action: NavAction) => void
+  onView: (view: View) => void
+}
+
+function Toolbar({ label, view, onNavigate, onView }: ToolbarProps) {
+  const views: { key: View; ru: string }[] = [
+    { key: 'month', ru: 'Месяц' },
+    { key: 'week', ru: 'Неделя' },
+    { key: 'day', ru: 'День' },
+  ]
+
+  return (
+    <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+      <div className="flex items-center gap-1 min-w-0">
+        <button
+          onClick={() => onNavigate('TODAY')}
+          className="h-8 px-3 text-xs font-medium text-stone-600 bg-stone-100 rounded-lg hover:bg-stone-200 transition-colors shrink-0"
+        >
+          Сегодня
+        </button>
+        <button
+          onClick={() => onNavigate('PREV')}
+          aria-label="Назад"
+          className="size-8 flex items-center justify-center text-stone-600 hover:bg-stone-100 rounded-lg transition-colors shrink-0"
+        >
+          <CaretLeft size={14} weight="bold" />
+        </button>
+        <button
+          onClick={() => onNavigate('NEXT')}
+          aria-label="Вперёд"
+          className="size-8 flex items-center justify-center text-stone-600 hover:bg-stone-100 rounded-lg transition-colors shrink-0"
+        >
+          <CaretRight size={14} weight="bold" />
+        </button>
+        <span className="text-sm font-medium text-stone-900 ml-1 truncate capitalize">
+          {label}
+        </span>
+      </div>
+
+      <div className="flex rounded-lg border border-stone-200 overflow-hidden shrink-0">
+        {views.map(({ key, ru: label }) => (
+          <button
+            key={key}
+            onClick={() => onView(key)}
+            className={`h-8 px-3 text-xs font-medium transition-colors border-r border-stone-200 last:border-r-0 ${
+              view === key
+                ? 'bg-accent text-white'
+                : 'bg-white text-stone-600 hover:bg-stone-50'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ─── Modal shell ─────────────────────────────────────────────────────────────
+
+function Modal({
+  title,
+  onClose,
+  children,
+}: {
+  title: string
+  onClose: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+      <div
+        className="absolute inset-0 bg-black/30 backdrop-blur-[2px]"
+        onClick={onClose}
+      />
+      <div className="relative w-full sm:w-[420px] bg-white rounded-t-2xl sm:rounded-2xl shadow-xl max-h-[92dvh] overflow-y-auto">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-stone-200 sticky top-0 bg-white rounded-t-2xl sm:rounded-t-2xl">
+          <h2 className="font-heading text-base font-semibold text-stone-900">{title}</h2>
+          <button
+            onClick={onClose}
+            className="size-8 flex items-center justify-center text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-lg transition-colors"
+          >
+            <X size={15} weight="bold" />
+          </button>
+        </div>
+        <div className="p-5">{children}</div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Create modal ─────────────────────────────────────────────────────────────
+
+function CreateModal({
+  start,
+  end,
+  students,
+  onClose,
+  onDone,
+}: {
+  start: Date
+  end: Date
+  students: Student[]
+  onClose: () => void
+  onDone: () => void
+}) {
+  const [studentId, setStudentId] = useState(students[0]?.id ?? '')
+  const [startVal, setStartVal] = useState(toInputValue(start))
+  const [endVal, setEndVal] = useState(toInputValue(end))
+  const [notes, setNotes] = useState('')
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!studentId) { setError('Выберите ученика'); return }
+    if (new Date(endVal) <= new Date(startVal)) {
+      setError('Время окончания должно быть позже начала')
+      return
+    }
+    setPending(true)
+    setError('')
+    try {
+      await createLesson(studentId, startVal, endVal, notes)
+      onDone()
+      onClose()
+    } catch {
+      setError('Не удалось сохранить занятие')
+      setPending(false)
+    }
+  }
+
+  return (
+    <Modal title="Новое занятие" onClose={onClose}>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-stone-600 block">Ученик</label>
+          <select
+            value={studentId}
+            onChange={(e) => setStudentId(e.target.value)}
+            className={INPUT_CLS}
+          >
+            {students.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}{s.level ? ` — ${s.level}` : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-stone-600 block">Начало</label>
+            <input
+              type="datetime-local"
+              value={startVal}
+              onChange={(e) => setStartVal(e.target.value)}
+              className={INPUT_CLS}
+              required
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-stone-600 block">Конец</label>
+            <input
+              type="datetime-local"
+              value={endVal}
+              onChange={(e) => setEndVal(e.target.value)}
+              className={INPUT_CLS}
+              required
+            />
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-stone-600 block">
+            Заметка <span className="text-stone-400 font-normal">(необязательно)</span>
+          </label>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={2}
+            placeholder="Тема урока, задание..."
+            className="w-full rounded-lg border border-stone-200 px-3 py-2 text-sm text-stone-900 outline-none transition-colors focus:border-accent focus:ring-2 focus:ring-accent/15 resize-none placeholder:text-stone-400"
+          />
+        </div>
+
+        {error && <p className="text-xs text-red-600">{error}</p>}
+
+        <div className="flex gap-2 pt-1">
+          <Button type="button" variant="secondary" className="flex-1" onClick={onClose}>
+            Отмена
+          </Button>
+          <Button type="submit" className="flex-1" disabled={pending}>
+            {pending ? 'Сохранение…' : 'Создать'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+// ─── Edit modal ───────────────────────────────────────────────────────────────
+
+function EditModal({
+  event,
+  onClose,
+  onDone,
+}: {
+  event: CalEvent
+  onClose: () => void
+  onDone: () => void
+}) {
+  const [startVal, setStartVal] = useState(toInputValue(event.start))
+  const [endVal, setEndVal] = useState(toInputValue(event.end))
+  const [pending, setPending] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault()
+    if (new Date(endVal) <= new Date(startVal)) {
+      setError('Время окончания должно быть позже начала')
+      return
+    }
+    setPending(true)
+    setError('')
+    try {
+      await updateLesson(event.id, startVal, endVal)
+      onDone()
+      onClose()
+    } catch {
+      setError('Не удалось обновить занятие')
+      setPending(false)
+    }
+  }
+
+  async function handleCancel() {
+    setCancelling(true)
+    try {
+      await cancelLesson(event.id)
+      onDone()
+      onClose()
+    } catch {
+      setError('Ошибка при отмене')
+      setCancelling(false)
+    }
+  }
+
+  return (
+    <Modal title={event.title} onClose={onClose}>
+      <form onSubmit={handleSave} className="space-y-4">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-stone-600 block">Начало</label>
+            <input
+              type="datetime-local"
+              value={startVal}
+              onChange={(e) => setStartVal(e.target.value)}
+              className={INPUT_CLS}
+              required
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-stone-600 block">Конец</label>
+            <input
+              type="datetime-local"
+              value={endVal}
+              onChange={(e) => setEndVal(e.target.value)}
+              className={INPUT_CLS}
+              required
+            />
+          </div>
+        </div>
+
+        {event.resource.notes && (
+          <p className="text-xs text-stone-500 bg-stone-50 rounded-lg px-3 py-2 leading-relaxed">
+            {event.resource.notes}
+          </p>
+        )}
+
+        {error && <p className="text-xs text-red-600">{error}</p>}
+
+        <div className="flex items-center gap-2 pt-1">
+          <Button
+            type="button"
+            variant="danger"
+            size="sm"
+            onClick={handleCancel}
+            disabled={cancelling || pending}
+            className="shrink-0"
+          >
+            <Trash size={13} />
+            {cancelling ? '…' : 'Отменить урок'}
+          </Button>
+          <div className="flex-1" />
+          <Button type="button" variant="secondary" size="sm" onClick={onClose} disabled={pending || cancelling}>
+            Закрыть
+          </Button>
+          <Button type="submit" size="sm" disabled={pending || cancelling}>
+            {pending ? 'Сохранение…' : 'Сохранить'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+// ─── Main export ──────────────────────────────────────────────────────────────
+
+export default function CalendarView({
+  lessons,
+  students,
+}: {
+  lessons: Lesson[]
+  students: Student[]
+}) {
+  const router = useRouter()
+  const [view, setView] = useState<View>('month')
+  const [date, setDate] = useState(new Date())
+  const [createSlot, setCreateSlot] = useState<{ start: Date; end: Date } | null>(null)
+  const [editEvent, setEditEvent] = useState<CalEvent | null>(null)
+
+  // Default to day view on narrow screens
+  useEffect(() => {
+    if (window.innerWidth < 1024) setView('day')
+  }, [])
+
+  const events = useMemo<CalEvent[]>(
+    () =>
+      lessons.map((l) => ({
+        id: l.id,
+        title: l.students?.[0]?.name ?? 'Ученик',
+        start: new Date(l.scheduled_at),
+        end: addMinutes(new Date(l.scheduled_at), l.duration_min),
+        resource: { studentId: l.student_id, status: l.status, notes: l.notes },
+      })),
+    [lessons]
+  )
+
+  const handleSelectSlot = useCallback(
+    (slot: SlotInfo) => {
+      if (students.length === 0) return
+      let { start, end } = slot
+      // Month view gives midnight–midnight; normalise to 10:00–11:00
+      if (start.getHours() === 0 && start.getMinutes() === 0) {
+        start = new Date(start)
+        start.setHours(10, 0, 0, 0)
+        end = new Date(start)
+        end.setHours(11, 0, 0, 0)
+      } else if (end.getTime() - start.getTime() < 60000) {
+        end = addMinutes(start, 60)
+      }
+      setCreateSlot({ start, end })
+    },
+    [students.length]
+  )
+
+  const handleSelectEvent = useCallback((event: object) => {
+    setEditEvent(event as CalEvent)
+  }, [])
+
+  const handleDone = useCallback(() => {
+    router.refresh()
+  }, [router])
+
+  return (
+    <div className="flex flex-col h-full">
+      {students.length === 0 && (
+        <p className="mb-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          Добавьте хотя бы одного ученика, чтобы планировать занятия
+        </p>
+      )}
+
+      <div className="flex-1 min-h-0 rbc-wrap">
+        <Calendar
+          localizer={localizer}
+          events={events}
+          view={view}
+          onView={(v) => setView(v)}
+          date={date}
+          onNavigate={(d) => setDate(d)}
+          selectable={students.length > 0}
+          onSelectSlot={handleSelectSlot}
+          onSelectEvent={handleSelectEvent}
+          culture="ru"
+          messages={messages}
+          style={{ height: '100%' }}
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          components={{ toolbar: Toolbar as any }}
+          eventPropGetter={() => ({
+            style: {
+              backgroundColor: '#3C6B4D',
+              borderColor: '#3C6B4D',
+              color: '#fff',
+              borderRadius: '6px',
+              fontSize: '12px',
+              border: 'none',
+            },
+          })}
+        />
+      </div>
+
+      {createSlot && students.length > 0 && (
+        <CreateModal
+          start={createSlot.start}
+          end={createSlot.end}
+          students={students}
+          onClose={() => setCreateSlot(null)}
+          onDone={handleDone}
+        />
+      )}
+
+      {editEvent && (
+        <EditModal
+          event={editEvent}
+          onClose={() => setEditEvent(null)}
+          onDone={handleDone}
+        />
+      )}
+    </div>
+  )
+}
