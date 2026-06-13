@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { StudentInfoForm } from '@/components/students/student-info-form'
 import { TrackSection } from '@/components/students/track-section'
 import { NotesSection } from '@/components/students/notes-section'
+import { AvatarEmojiPicker } from '@/components/students/avatar-emoji-picker'
 import {
   archiveStudent,
   updateStudentInfo,
@@ -27,7 +28,7 @@ export default async function StudentPage({
   const [{ data: student }, { data: rawTopics }] = await Promise.all([
     supabase
       .from('students')
-      .select('id, name, level, contacts, notes')
+      .select('id, name, level, contacts, notes, avatar_emoji')
       .eq('id', id)
       .single(),
     supabase
@@ -51,17 +52,26 @@ export default async function StudentPage({
     <div className="p-4 lg:p-6 space-y-5 max-w-4xl">
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-2 min-w-0">
-          <Link
-            href="/students"
-            className="text-sm text-stone-500 hover:text-stone-700 transition-colors shrink-0"
-          >
-            ← Ученики
-          </Link>
-          <span className="text-stone-300 text-sm">/</span>
-          <h1 className="font-heading text-lg font-semibold text-stone-900 lg:text-xl truncate">
-            {student.name}
-          </h1>
+        <div className="flex items-center gap-3 min-w-0">
+          <AvatarEmojiPicker
+            studentId={id}
+            emoji={student.avatar_emoji ?? null}
+            fallbackInitial={student.name.charAt(0).toUpperCase()}
+          />
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <Link
+                href="/students"
+                className="text-sm text-stone-500 hover:text-stone-700 transition-colors shrink-0"
+              >
+                ← Ученики
+              </Link>
+              <span className="text-stone-300 text-sm">/</span>
+            </div>
+            <h1 className="font-heading text-lg font-semibold text-stone-900 lg:text-xl truncate">
+              {student.name}
+            </h1>
+          </div>
         </div>
         <form action={archiveStudent.bind(null, id)}>
           <button

@@ -8,7 +8,7 @@ export default async function StudentsPage() {
   const supabase = await createClient()
   const { data: students } = await supabase
     .from('students')
-    .select('id, name, level, created_at')
+    .select('id, name, level, avatar_emoji, created_at')
     .eq('is_archived', false)
     .order('created_at', { ascending: false })
 
@@ -59,9 +59,13 @@ export default async function StudentsPage() {
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="size-9 rounded-full bg-accent-subtle flex items-center justify-center shrink-0">
-                      <span className="text-sm font-semibold text-accent">
-                        {student.name.charAt(0).toUpperCase()}
-                      </span>
+                      {student.avatar_emoji ? (
+                        <span className="text-xl leading-none">{student.avatar_emoji}</span>
+                      ) : (
+                        <span className="text-sm font-semibold text-accent">
+                          {student.name.charAt(0).toUpperCase()}
+                        </span>
+                      )}
                     </div>
                     <div className="min-w-0">
                       <Link

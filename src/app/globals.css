@@ -5,9 +5,9 @@
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-unbounded);
 
-  --color-accent: #3C6B4D;
-  --color-accent-hover: #2E5339;
-  --color-accent-subtle: #F0F6F2;
+  --color-accent: #5C3D6C;
+  --color-accent-hover: #452D52;
+  --color-accent-subtle: #F3EFF5;
 }
 
 /* ─── react-big-calendar overrides ──────────────────────────────────────── */
@@ -65,7 +65,7 @@
 }
 
 .rbc-today {
-  background: #F0F6F2;
+  background: #F3EFF5;
 }
 
 .rbc-date-cell {
@@ -76,7 +76,7 @@
 
 .rbc-date-cell.rbc-now {
   font-weight: 700;
-  color: #3C6B4D;
+  color: #5C3D6C;
 }
 
 .rbc-date-cell a {
@@ -85,7 +85,7 @@
 
 /* Events */
 .rbc-event {
-  background-color: #3C6B4D !important;
+  background-color: #5C3D6C !important;
   border: none !important;
   border-radius: 5px !important;
   padding: 2px 6px !important;
@@ -98,8 +98,8 @@
 
 .rbc-event:focus,
 .rbc-event.rbc-selected {
-  background-color: #2E5339 !important;
-  box-shadow: 0 0 0 2px #fff, 0 0 0 4px #3C6B4D !important;
+  background-color: #452D52 !important;
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px #5C3D6C !important;
 }
 
 .rbc-event-label {
@@ -109,7 +109,7 @@
 
 /* Show-more link */
 .rbc-show-more {
-  color: #3C6B4D;
+  color: #5C3D6C;
   font-size: 11px;
   font-weight: 600;
   padding: 2px 6px;
@@ -117,10 +117,10 @@
 
 /* Slot selection highlight */
 .rbc-slot-selection {
-  background: rgba(60, 107, 77, 0.12);
-  border: 1px solid rgba(60, 107, 77, 0.4);
+  background: rgba(92, 61, 108, 0.12);
+  border: 1px solid rgba(92, 61, 108, 0.4);
   border-radius: 4px;
-  color: #3C6B4D;
+  color: #5C3D6C;
   font-size: 12px;
 }
 
@@ -157,7 +157,7 @@
 }
 
 .rbc-current-time-indicator {
-  background-color: #3C6B4D;
+  background-color: #5C3D6C;
   height: 2px;
 }
 
@@ -169,11 +169,11 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #3C6B4D;
+  background: #5C3D6C;
 }
 
 .rbc-time-column .rbc-now .rbc-label {
-  color: #3C6B4D;
+  color: #5C3D6C;
   font-weight: 600;
 }
 
