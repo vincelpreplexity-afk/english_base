@@ -12,16 +12,27 @@ export default async function MaterialsPage() {
   const materials = rows ?? []
 
   // Generate signed URLs for file-type materials (1-hour expiry)
+  // signedUrl → for inline preview/opening
+  // downloadUrl → with Content-Disposition: attachment
   const withUrls = await Promise.all(
     materials.map(async m => {
       let signedUrl: string | null = null
+      let downloadUrl: string | null = null
+
       if (m.type === 'file' && m.url) {
-        const { data } = await supabase.storage
-          .from('materials')
-          .createSignedUrl(m.url, 3600)
-        signedUrl = data?.signedUrl ?? null
+        const ext = m.url.split('.').pop() ?? 'bin'
+        const filename = `${m.title}.${ext}`
+
+        const [{ data: previewData }, { data: dlData }] = await Promise.all([
+          supabase.storage.from('materials').createSignedUrl(m.url, 3600),
+          supabase.storage.from('materials').createSignedUrl(m.url, 3600, { download: filename }),
+        ])
+
+        signedUrl = previewData?.signedUrl ?? null
+        downloadUrl = dlData?.signedUrl ?? null
       }
-      return { ...m, signedUrl }
+
+      return { ...m, signedUrl, downloadUrl }
     })
   )
 
