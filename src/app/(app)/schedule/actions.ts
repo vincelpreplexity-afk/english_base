@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { mskNaiveToDate } from '@/lib/time'
 
 export async function createLesson(
   studentId: string,
@@ -10,14 +11,16 @@ export async function createLesson(
   notes?: string
 ) {
   const supabase = await createClient()
+  const startD = mskNaiveToDate(startAt)
+  const endD = mskNaiveToDate(endAt)
   const duration = Math.max(
     1,
-    Math.round((new Date(endAt).getTime() - new Date(startAt).getTime()) / 60000)
+    Math.round((endD.getTime() - startD.getTime()) / 60000)
   )
 
   const { error } = await supabase.from('lessons').insert({
     student_id: studentId,
-    scheduled_at: new Date(startAt).toISOString(),
+    scheduled_at: startD.toISOString(),
     duration_min: duration,
     status: 'scheduled',
     notes: notes?.trim() || null,
@@ -35,9 +38,9 @@ export async function createRecurringLessons(
   notes?: string
 ) {
   const supabase = await createClient()
-  const startD = new Date(startAt)
-  const endD = new Date(endAt)
-  const until = new Date(`${untilDate}T23:59:59`)
+  const startD = mskNaiveToDate(startAt)
+  const endD = mskNaiveToDate(endAt)
+  const until = mskNaiveToDate(`${untilDate}T23:59:59`)
   const WEEK_MS = 7 * 24 * 60 * 60 * 1000
   const MAX_LESSONS = 52
 
@@ -70,15 +73,17 @@ export async function updateLesson(
   endAt: string
 ) {
   const supabase = await createClient()
+  const startD = mskNaiveToDate(startAt)
+  const endD = mskNaiveToDate(endAt)
   const duration = Math.max(
     1,
-    Math.round((new Date(endAt).getTime() - new Date(startAt).getTime()) / 60000)
+    Math.round((endD.getTime() - startD.getTime()) / 60000)
   )
 
   await supabase
     .from('lessons')
     .update({
-      scheduled_at: new Date(startAt).toISOString(),
+      scheduled_at: startD.toISOString(),
       duration_min: duration,
     })
     .eq('id', lessonId)

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createStudentQuick } from '@/app/(app)/dashboard/actions'
 import { createLesson } from '@/app/(app)/schedule/actions'
 import AddMaterialModal from '@/components/materials/add-material-modal'
+import { mskTodayDateString } from '@/lib/time'
 
 type Student = { id: string; name: string }
 
@@ -22,7 +23,7 @@ const INPUT_CLS =
   'w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent'
 
 function today() {
-  return new Date().toISOString().split('T')[0]
+  return mskTodayDateString()
 }
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {

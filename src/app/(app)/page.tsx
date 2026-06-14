@@ -9,13 +9,13 @@ import {
 import { TodayWidget } from '@/components/dashboard/today-widget'
 import { TasksWidget } from '@/components/dashboard/tasks-widget'
 import { QuickActions } from '@/components/dashboard/quick-actions'
+import { mskTodayDateString, mskDayRangeUtc } from '@/lib/time'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
 
-  const todayStr = new Date().toISOString().split('T')[0]
-  const start = `${todayStr}T00:00:00.000Z`
-  const end = `${todayStr}T23:59:59.999Z`
+  const todayStr = mskTodayDateString()
+  const { start, end } = mskDayRangeUtc(todayStr)
 
   const [
     { data: lessonRows },
@@ -68,6 +68,7 @@ export default async function DashboardPage() {
 
   const now = new Date()
   const dateLabel = now.toLocaleDateString('ru-RU', {
+    timeZone: 'Europe/Moscow',
     weekday: 'long',
     day: 'numeric',
     month: 'long',

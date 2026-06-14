@@ -1,4 +1,4 @@
-import { addMinutes, format } from 'date-fns'
+import { formatMskTime } from '@/lib/time'
 import TodayPayToggle from './today-pay-toggle'
 
 type Lesson = {
@@ -21,8 +21,9 @@ export function TodayWidget({ lessons }: { lessons: Lesson[] }) {
   return (
     <ul className="divide-y divide-stone-100">
       {lessons.map(l => {
-        const start = new Date(l.scheduled_at)
-        const end = addMinutes(start, l.duration_min)
+        const endDate = new Date(
+          new Date(l.scheduled_at).getTime() + l.duration_min * 60000
+        )
         return (
           <li key={l.id} className="px-5 py-3 flex items-center justify-between gap-3">
             <div className="min-w-0">
@@ -30,7 +31,7 @@ export function TodayWidget({ lessons }: { lessons: Lesson[] }) {
                 {l.students?.name ?? 'Ученик'}
               </p>
               <p className="text-xs text-stone-400 mt-0.5">
-                {format(start, 'HH:mm')} – {format(end, 'HH:mm')}
+                {formatMskTime(l.scheduled_at)} – {formatMskTime(endDate)}
               </p>
             </div>
             <div className="flex items-center gap-2 shrink-0">

@@ -19,7 +19,7 @@ import { Button } from '@/components/ui/button'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type Lesson = {
+export type Lesson = {
   id: string
   student_id: string
   scheduled_at: string
@@ -27,7 +27,9 @@ type Lesson = {
   status: 'scheduled' | 'completed' | 'cancelled'
   notes: string | null
   is_paid: boolean
-  students: { name: string }[] | null
+  // Many-to-one FK (lessons.student_id → students) → PostgREST returns a
+  // single object here, not an array, despite what supabase-js infers.
+  students: { name: string } | null
 }
 
 type Student = { id: string; name: string; level: string | null }
@@ -477,7 +479,7 @@ export default function CalendarView({
     () =>
       lessons.map((l) => ({
         id: l.id,
-        title: l.students?.[0]?.name ?? 'Ученик',
+        title: l.students?.name ?? 'Ученик',
         start: new Date(l.scheduled_at),
         end: addMinutes(new Date(l.scheduled_at), l.duration_min),
         resource: {

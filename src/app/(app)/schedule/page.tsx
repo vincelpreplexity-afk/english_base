@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import CalendarView from '@/components/schedule/calendar-view'
+import CalendarView, { type Lesson } from '@/components/schedule/calendar-view'
 
 export default async function SchedulePage() {
   const supabase = await createClient()
@@ -30,7 +30,7 @@ export default async function SchedulePage() {
 
       <div className="flex-1 min-h-0 p-4 lg:p-6">
         <CalendarView
-          lessons={lessons ?? []}
+          lessons={(lessons ?? []) as unknown as Lesson[]}
           students={students ?? []}
         />
       </div>
