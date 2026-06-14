@@ -82,17 +82,17 @@ export default async function StudentsPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1 shrink-0">
+                  <div className="flex items-center gap-2 shrink-0">
                     <Link
                       href={`/students/${student.id}`}
-                      className="text-xs text-stone-500 hover:text-accent transition-colors px-2 py-1.5 rounded-md hover:bg-stone-100"
+                      className="inline-flex min-h-[40px] items-center text-xs text-stone-500 hover:text-accent transition-colors px-3 rounded-md hover:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
                     >
                       Открыть →
                     </Link>
                     <form action={archiveStudent.bind(null, student.id)}>
                       <button
                         type="submit"
-                        className="text-xs text-stone-400 hover:text-red-600 transition-colors px-2 py-1.5 rounded-md hover:bg-red-50 cursor-pointer"
+                        className="inline-flex min-h-[40px] items-center text-xs text-stone-500 hover:text-red-600 transition-colors px-3 rounded-md hover:bg-red-50 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/40"
                       >
                         Архив
                       </button>

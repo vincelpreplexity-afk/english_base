@@ -76,7 +76,7 @@ export default async function StudentPage({
         <form action={archiveStudent.bind(null, id)}>
           <button
             type="submit"
-            className="text-xs text-stone-400 hover:text-red-600 transition-colors px-2 py-1.5 rounded-md hover:bg-red-50 cursor-pointer shrink-0"
+            className="inline-flex min-h-[40px] items-center text-xs text-stone-500 hover:text-red-600 transition-colors px-3 rounded-md hover:bg-red-50 cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/40"
           >
             Архивировать
           </button>

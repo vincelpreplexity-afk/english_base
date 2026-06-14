@@ -30,12 +30,12 @@ export function TodayWidget({ lessons }: { lessons: Lesson[] }) {
               <p className="text-sm font-medium text-stone-900 truncate">
                 {l.students?.name ?? 'Ученик'}
               </p>
-              <p className="text-xs text-stone-400 mt-0.5">
+              <p className="text-xs text-stone-600 mt-0.5">
                 {formatMskTime(l.scheduled_at)} – {formatMskTime(endDate)}
               </p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              <span className="text-xs text-stone-400">{l.duration_min} мин</span>
+              <span className="text-xs text-stone-500">{l.duration_min} мин</span>
               <TodayPayToggle lessonId={l.id} isPaid={l.is_paid} />
             </div>
           </li>

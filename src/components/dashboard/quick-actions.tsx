@@ -2,10 +2,12 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { X } from '@phosphor-icons/react'
 import { createStudentQuick } from '@/app/(app)/dashboard/actions'
 import { createLesson } from '@/app/(app)/schedule/actions'
 import AddMaterialModal from '@/components/materials/add-material-modal'
 import { mskTodayDateString } from '@/lib/time'
+import { useScrollLock } from '@/lib/use-scroll-lock'
 
 type Student = { id: string; name: string }
 
@@ -27,6 +29,7 @@ function today() {
 }
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  useScrollLock()
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
@@ -35,9 +38,10 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
           <h2 className="font-heading font-semibold text-stone-900 text-base">{title}</h2>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-stone-100 text-stone-500 transition-colors"
+            aria-label="Закрыть"
+            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-stone-100 text-stone-500 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
           >
-            ✕
+            <X size={16} weight="bold" />
           </button>
         </div>
         {children}

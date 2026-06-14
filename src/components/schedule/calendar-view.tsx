@@ -16,6 +16,7 @@ import {
   toggleLessonPaid,
 } from '@/app/(app)/schedule/actions'
 import { Button } from '@/components/ui/button'
+import { useScrollLock } from '@/lib/use-scroll-lock'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -107,21 +108,21 @@ function Toolbar({ label, view, onNavigate, onView }: ToolbarProps) {
       <div className="flex items-center gap-1 min-w-0">
         <button
           onClick={() => onNavigate('TODAY')}
-          className="h-8 px-3 text-xs font-medium text-stone-600 bg-stone-100 rounded-lg hover:bg-stone-200 transition-colors shrink-0"
+          className="h-10 px-3 text-xs font-medium text-stone-600 bg-stone-100 rounded-lg hover:bg-stone-200 transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
         >
           Сегодня
         </button>
         <button
           onClick={() => onNavigate('PREV')}
           aria-label="Назад"
-          className="size-8 flex items-center justify-center text-stone-600 hover:bg-stone-100 rounded-lg transition-colors shrink-0"
+          className="size-10 flex items-center justify-center text-stone-600 hover:bg-stone-100 rounded-lg transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
         >
           <CaretLeft size={14} weight="bold" />
         </button>
         <button
           onClick={() => onNavigate('NEXT')}
           aria-label="Вперёд"
-          className="size-8 flex items-center justify-center text-stone-600 hover:bg-stone-100 rounded-lg transition-colors shrink-0"
+          className="size-10 flex items-center justify-center text-stone-600 hover:bg-stone-100 rounded-lg transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
         >
           <CaretRight size={14} weight="bold" />
         </button>
@@ -135,7 +136,7 @@ function Toolbar({ label, view, onNavigate, onView }: ToolbarProps) {
           <button
             key={key}
             onClick={() => onView(key)}
-            className={`h-8 px-3 text-xs font-medium transition-colors border-r border-stone-200 last:border-r-0 ${
+            className={`h-10 px-3 text-xs font-medium transition-colors border-r border-stone-200 last:border-r-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40 ${
               view === key
                 ? 'bg-accent text-white'
                 : 'bg-white text-stone-600 hover:bg-stone-50'
@@ -160,6 +161,7 @@ function Modal({
   onClose: () => void
   children: React.ReactNode
 }) {
+  useScrollLock()
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
       <div
@@ -171,9 +173,10 @@ function Modal({
           <h2 className="font-heading text-base font-semibold text-stone-900">{title}</h2>
           <button
             onClick={onClose}
-            className="size-8 flex items-center justify-center text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-lg transition-colors"
+            aria-label="Закрыть"
+            className="size-10 flex items-center justify-center text-stone-500 hover:text-stone-700 hover:bg-stone-100 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
           >
-            <X size={15} weight="bold" />
+            <X size={16} weight="bold" />
           </button>
         </div>
         <div className="p-5">{children}</div>

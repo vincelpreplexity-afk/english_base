@@ -7,8 +7,11 @@ import {
   Globe, Headphones, Microphone, Translate, Brain,
   Lightbulb, Trophy, MusicNote, VideoCamera, Newspaper,
   Palette, Star, Bookmark, Chalkboard, Backpack,
+  FilePdf, FileDoc, FilePpt, File, LinkSimple,
+  FolderSimple, ListBullets, PencilSimple,
 } from '@phosphor-icons/react'
 import { deleteMaterial, setCategoryIcon } from '@/app/(app)/materials/actions'
+import { useScrollLock } from '@/lib/use-scroll-lock'
 import AddMaterialModal from './add-material-modal'
 
 const LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1'] as const
@@ -65,13 +68,13 @@ function isImage(m: Material) {
   return m.type === 'file' && IMAGE_EXTS.has(getExt(m.url))
 }
 
-function fileIcon(m: Material) {
-  if (m.type === 'link') return '🔗'
-  const ext = getExt(m.url)
-  if (ext === 'pdf') return '📕'
-  if (ext === 'doc' || ext === 'docx') return '📝'
-  if (ext === 'ppt' || ext === 'pptx') return '📊'
-  return '📄'
+function FileTypeIcon({ material, size = 40 }: { material: Material; size?: number }) {
+  if (material.type === 'link') return <LinkSimple size={size} weight="duotone" />
+  const ext = getExt(material.url)
+  if (ext === 'pdf') return <FilePdf size={size} weight="duotone" />
+  if (ext === 'doc' || ext === 'docx') return <FileDoc size={size} weight="duotone" />
+  if (ext === 'ppt' || ext === 'pptx') return <FilePpt size={size} weight="duotone" />
+  return <File size={size} weight="duotone" />
 }
 
 // ─── Level badge ──────────────────────────────────────────────────────────────
@@ -94,6 +97,7 @@ function LevelBadge({ level }: { level: string }) {
 // ─── Image lightbox ───────────────────────────────────────────────────────────
 
 function ImageLightbox({ src, title, onClose }: { src: string; title: string; onClose: () => void }) {
+  useScrollLock()
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
@@ -139,7 +143,6 @@ function MaterialCard({
   const [, startTransition] = useTransition()
 
   const img = isImage(material)
-  const icon = fileIcon(material)
   const openUrl = material.type === 'file' ? material.signedUrl : material.url
 
   function handleDelete() {
@@ -174,7 +177,7 @@ function MaterialCard({
           </button>
         ) : (
           <div className="w-full aspect-[4/3] bg-stone-50 flex flex-col items-center justify-center gap-2 border-b border-stone-100">
-            <span className="text-4xl">{icon}</span>
+            <span className="text-stone-400"><FileTypeIcon material={material} size={40} /></span>
             {openUrl ? (
               <a href={openUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-accent font-medium hover:underline">
                 Открыть ↗
@@ -189,7 +192,7 @@ function MaterialCard({
             {material.level && <LevelBadge level={material.level} />}
           </div>
           {showCategory && material.category && (
-            <p className="text-xs text-stone-400 truncate">{material.category}</p>
+            <p className="text-xs text-stone-500 truncate">{material.category}</p>
           )}
         </div>
 
@@ -277,7 +280,7 @@ function FolderCard({
           <p className="text-sm font-semibold text-stone-900 line-clamp-2">
             {name === NO_CATEGORY ? 'Без категории' : name}
           </p>
-          <p className="text-xs text-stone-400 mt-0.5">
+          <p className="text-xs text-stone-500 mt-0.5">
             {count} {count === 1 ? 'материал' : count < 5 ? 'материала' : 'материалов'}
           </p>
         </div>
@@ -288,10 +291,11 @@ function FolderCard({
           <button
             type="button"
             title="Сменить иконку"
+            aria-label="Сменить иконку папки"
             onClick={e => { e.stopPropagation(); setPickerOpen(v => !v) }}
-            className="opacity-0 group-hover/folder:opacity-100 w-7 h-7 rounded-lg bg-stone-100 hover:bg-accent-subtle text-stone-400 hover:text-accent flex items-center justify-center text-xs transition-all"
+            className="opacity-0 group-hover/folder:opacity-100 focus-visible:opacity-100 w-9 h-9 rounded-lg bg-stone-100 hover:bg-accent-subtle text-stone-500 hover:text-accent flex items-center justify-center transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
           >
-            ✎
+            <PencilSimple size={15} />
           </button>
 
           {pickerOpen && (
@@ -328,11 +332,15 @@ function ViewToggle({ mode, onChange }: { mode: ViewMode; onChange: (m: ViewMode
           key={m}
           type="button"
           onClick={() => onChange(m)}
-          className={`px-4 py-2 transition-colors ${i > 0 ? 'border-l border-stone-200' : ''} ${
+          className={`inline-flex items-center gap-1.5 px-4 py-2.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/40 ${i > 0 ? 'border-l border-stone-200' : ''} ${
             mode === m ? 'bg-accent text-white' : 'bg-white text-stone-600 hover:bg-stone-50'
           }`}
         >
-          {m === 'folders' ? '📁 Папки' : '☰ Список'}
+          {m === 'folders' ? (
+            <><FolderSimple size={15} weight="duotone" /> Папки</>
+          ) : (
+            <><ListBullets size={15} /> Список</>
+          )}
         </button>
       ))}
     </div>
@@ -345,7 +353,7 @@ function CardGrid({ items, showCategory = true, onDelete }: { items: Material[];
   if (items.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
-        <p className="text-4xl mb-3">📚</p>
+        <BookOpen size={40} weight="duotone" className="text-stone-300 mb-3" />
         <p className="text-stone-600 font-medium">Нет материалов</p>
       </div>
     )
@@ -451,9 +459,9 @@ export default function MaterialsList({ materials: initialMaterials, categories:
       {viewMode === 'folders' && selectedCategory === null && (
         localMaterials.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <p className="text-4xl mb-3">📚</p>
+            <BookOpen size={40} weight="duotone" className="text-stone-300 mb-3" />
             <p className="text-stone-600 font-medium">Пока нет материалов</p>
-            <p className="text-sm text-stone-400 mt-1">Нажмите «Добавить», чтобы загрузить первый</p>
+            <p className="text-sm text-stone-500 mt-1">Нажмите «Добавить», чтобы загрузить первый</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
@@ -490,7 +498,7 @@ export default function MaterialsList({ materials: initialMaterials, categories:
             <h2 className="text-sm font-semibold text-stone-900">
               {selectedCategory === NO_CATEGORY ? 'Без категории' : selectedCategory}
             </h2>
-            <span className="text-xs text-stone-400">({folderContents.length})</span>
+            <span className="text-xs text-stone-500">({folderContents.length})</span>
           </div>
           <CardGrid items={folderContents} showCategory={false} onDelete={handleDelete} />
         </>
@@ -534,12 +542,12 @@ export default function MaterialsList({ materials: initialMaterials, categories:
 
           {filteredList.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">
-              <p className="text-4xl mb-3">📚</p>
+              <BookOpen size={40} weight="duotone" className="text-stone-300 mb-3" />
               <p className="text-stone-600 font-medium">
                 {hasFilters ? 'Нет материалов с такими фильтрами' : 'Пока нет материалов'}
               </p>
               {!hasFilters && (
-                <p className="text-sm text-stone-400 mt-1">Нажмите «Добавить», чтобы загрузить первый</p>
+                <p className="text-sm text-stone-500 mt-1">Нажмите «Добавить», чтобы загрузить первый</p>
               )}
             </div>
           ) : (

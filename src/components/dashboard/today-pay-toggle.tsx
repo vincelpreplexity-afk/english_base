@@ -22,14 +22,20 @@ export default function TodayPayToggle({
   return (
     <button
       onClick={toggle}
+      aria-label={isPaid ? 'Оплачено — нажмите чтобы снять' : 'Не оплачено — нажмите чтобы отметить'}
+      aria-pressed={isPaid}
       title={isPaid ? 'Оплачено — нажмите чтобы снять' : 'Не оплачено — нажмите чтобы отметить'}
-      className={`size-7 rounded-full flex items-center justify-center text-xs font-semibold transition-all ${
-        isPaid
-          ? 'bg-green-100 text-green-700 hover:bg-green-200'
-          : 'bg-stone-100 text-stone-400 hover:bg-accent-subtle hover:text-accent'
-      }`}
+      className="group flex size-11 items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
     >
-      {isPaid ? '✓' : '₽'}
+      <span
+        className={`size-7 rounded-full flex items-center justify-center text-xs font-semibold transition-colors ${
+          isPaid
+            ? 'bg-green-100 text-green-700 group-hover:bg-green-200'
+            : 'bg-stone-100 text-stone-500 group-hover:bg-accent-subtle group-hover:text-accent'
+        }`}
+      >
+        {isPaid ? '✓' : '₽'}
+      </span>
     </button>
   )
 }

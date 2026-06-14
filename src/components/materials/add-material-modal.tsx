@@ -1,7 +1,9 @@
 'use client'
 
 import { useRef, useState, useTransition } from 'react'
+import { X } from '@phosphor-icons/react'
 import { createMaterial } from '@/app/(app)/materials/actions'
+import { useScrollLock } from '@/lib/use-scroll-lock'
 
 const LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1'] as const
 
@@ -14,6 +16,7 @@ type Props = {
 }
 
 export default function AddMaterialModal({ categories, onClose }: Props) {
+  useScrollLock()
   const formRef = useRef<HTMLFormElement>(null)
   const [inputType, setInputType] = useState<'file' | 'link'>('file')
   const [error, setError] = useState<string | null>(null)
@@ -44,9 +47,10 @@ export default function AddMaterialModal({ categories, onClose }: Props) {
           <h2 className="font-heading font-semibold text-stone-900 text-base">Новый материал</h2>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-stone-100 text-stone-500 transition-colors"
+            aria-label="Закрыть"
+            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-stone-100 text-stone-500 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
           >
-            ✕
+            <X size={16} weight="bold" />
           </button>
         </div>
 
