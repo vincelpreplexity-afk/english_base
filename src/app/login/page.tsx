@@ -4,8 +4,19 @@ import { BookOpen } from '@phosphor-icons/react'
 import { useLoginTransition } from '@/hooks/useLoginTransition'
 
 export default function LoginPage() {
-  const { isSubmitting, error, handleSubmit, cardRef, formRef, sealRef, progressRef } =
-    useLoginTransition()
+  const {
+    isSubmitting,
+    error,
+    handleSubmit,
+    cardRef,
+    formRef,
+    sealRef,
+    glowRef,
+    iconRef,
+    textRef,
+    progressRef,
+    shimmerRef,
+  } = useLoginTransition()
 
   return (
     <main className="min-h-dvh flex items-center justify-center bg-accent-subtle px-4">
@@ -55,19 +66,38 @@ export default function LoginPage() {
               aria-hidden
               className="invisible absolute inset-0 flex flex-col items-center justify-center gap-2"
             >
-              <BookOpen size={32} weight="duotone" className="text-accent" />
-              <span className="font-heading text-[18px] font-semibold text-accent">
+              <div className="relative flex items-center justify-center">
+                {/* Pulsing accent halo behind the icon */}
+                <div
+                  ref={glowRef}
+                  className="pointer-events-none absolute h-20 w-20 rounded-full bg-accent/40 opacity-0 blur-2xl"
+                />
+                <div ref={iconRef} className="relative opacity-0">
+                  <BookOpen size={32} weight="duotone" className="text-accent" />
+                </div>
+              </div>
+              <span
+                ref={textRef}
+                className="font-heading text-[18px] font-semibold text-accent opacity-0"
+              >
                 English Base
               </span>
             </div>
           </div>
 
-          {/* Progress bar — sweeps the bottom edge of the card */}
-          <div
-            ref={progressRef}
-            aria-hidden
-            className="absolute bottom-0 left-0 h-[2px] w-0 rounded-[1px] bg-accent"
-          />
+          {/* Progress bar — glowing fill with a highlight glinting across it */}
+          <div className="absolute bottom-0 left-0 right-0 h-[2px] overflow-hidden">
+            <div
+              ref={progressRef}
+              aria-hidden
+              className="relative h-full w-0 overflow-hidden rounded-[1px] bg-accent shadow-[0_0_10px_rgba(92,61,108,0.7)]"
+            >
+              <div
+                ref={shimmerRef}
+                className="absolute inset-y-0 left-0 w-1/2 -translate-x-full bg-gradient-to-r from-transparent via-white/80 to-transparent"
+              />
+            </div>
+          </div>
         </div>
       </div>
     </main>
