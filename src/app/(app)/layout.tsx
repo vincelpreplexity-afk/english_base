@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { NavLinks } from '@/components/layout/nav-links'
 import { LogoutButton } from '@/components/layout/logout-button'
 import { MobileMenu } from '@/components/layout/mobile-menu'
+import { PageEnter } from '@/components/layout/page-enter'
 
 async function logout() {
   'use server'
@@ -43,7 +44,7 @@ export default function AppLayout({
 
       {/* Page content — offset for mobile top bar */}
       <main className="flex-1 overflow-y-auto pt-12 pb-24 lg:pt-0 lg:pb-0">
-        {children}
+        <PageEnter>{children}</PageEnter>
       </main>
 
       {/* Bottom nav — mobile only */}

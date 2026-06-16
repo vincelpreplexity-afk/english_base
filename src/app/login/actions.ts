@@ -1,16 +1,17 @@
 'use server'
 
 import { cookies } from 'next/headers'
-import { redirect } from 'next/navigation'
 
-export async function login(formData: FormData) {
+export type LoginResult = { ok: true } | { ok: false; error: string }
+
+export async function login(formData: FormData): Promise<LoginResult> {
   const password = formData.get('password')
 
   if (
     typeof password !== 'string' ||
     password !== process.env.SITE_PASSWORD
   ) {
-    redirect('/login?error=1')
+    return { ok: false, error: 'Неверный пароль' }
   }
 
   const cookieStore = await cookies()
@@ -22,5 +23,5 @@ export async function login(formData: FormData) {
     maxAge: 60 * 60 * 24 * 7, // 7 days
   })
 
-  redirect('/')
+  return { ok: true }
 }
