@@ -76,7 +76,23 @@ export default async function DashboardPage() {
   }).replace(' г.', '').replace(/^./, c => c.toUpperCase())
 
   return (
-    <div className="p-4 lg:p-6 space-y-5">
+    <div className="relative min-h-full p-4 lg:p-6 space-y-5">
+      {/* Small decorative flower in the bottom-left corner of the content area.
+          Absolute (not fixed) so it stays inside the content box even though
+          PageEnter establishes a transform containing block; -z-10 +
+          pointer-events-none keep it behind the cards so it never overlaps the
+          UI. Full opacity — a solid little illustration, not a watermark. */}
+      <Image
+        src="/flower.png"
+        alt=""
+        aria-hidden
+        width={800}
+        height={724}
+        priority={false}
+        draggable={false}
+        className="pointer-events-none select-none absolute bottom-4 left-2 lg:left-3 w-24 lg:w-32 h-auto -z-10"
+      />
+
       <div>
         <h1 className="font-heading text-lg font-semibold text-stone-900 lg:text-xl">
           Дашборд
@@ -117,17 +133,6 @@ export default async function DashboardPage() {
               alt=""
               width={1024}
               height={1024}
-              className="w-full h-auto block"
-              priority={false}
-            />
-          </div>
-
-          <div className="rounded-xl overflow-hidden">
-            <Image
-              src="/flower.png"
-              alt=""
-              width={800}
-              height={724}
               className="w-full h-auto block"
               priority={false}
             />
