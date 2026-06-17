@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback, useEffect, useTransition } from 'react'
 import { Calendar, dateFnsLocalizer, type View, type SlotInfo } from 'react-big-calendar'
-import { format, parse, startOfWeek, getDay, addMinutes } from 'date-fns'
+import { format, parse, startOfWeek, getDay, addMinutes, addWeeks } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import { useRouter } from 'next/navigation'
 import { CaretLeft, CaretRight, X, Trash } from '@phosphor-icons/react'
@@ -205,7 +205,11 @@ function CreateModal({
   const [endVal, setEndVal] = useState(toInputValue(end))
   const [notes, setNotes] = useState('')
   const [repeatWeekly, setRepeatWeekly] = useState(false)
-  const [untilDate, setUntilDate] = useState(toDateValue(start))
+  // Default the "until" date 4 weeks out so checking "repeat weekly" actually
+  // produces a series. Defaulting to the start day would yield a single lesson
+  // (next occurrence already exceeds `until`), which looks like the feature is
+  // broken. Only read when repeatWeekly is true, so harmless when unchecked.
+  const [untilDate, setUntilDate] = useState(toDateValue(addWeeks(start, 4)))
   const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
 
