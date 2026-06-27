@@ -91,47 +91,66 @@ export async function updateLesson(
   revalidatePath('/schedule')
 }
 
+// Mark a lesson completed and snapshot the student's current rate onto it
+// (lessons.price), so it counts toward the student's balance even if the rate
+// changes later. A null rate snapshots null and is COALESCE'd to 0 in balance.
 export async function completeLesson(lessonId: string) {
   const supabase = await createClient()
+
+  const { data: lesson } = await supabase
+    .from('lessons')
+    .select('student_id')
+    .eq('id', lessonId)
+    .single()
+
+  let price: number | null = null
+  if (lesson) {
+    const { data: student } = await supabase
+      .from('students')
+      .select('rate')
+      .eq('id', lesson.student_id)
+      .single()
+    price = student?.rate ?? null
+  }
+
   await supabase
     .from('lessons')
-    .update({ status: 'completed' })
+    .update({ status: 'completed', price })
     .eq('id', lessonId)
 
   revalidatePath('/schedule')
   revalidatePath('/')
+  if (lesson) revalidatePath(`/students/${lesson.student_id}`)
 }
 
 // Return a completed/cancelled lesson back to "scheduled" — undo a mis-click.
+// Clears the price snapshot so it no longer counts toward the balance.
 export async function reopenLesson(lessonId: string) {
   const supabase = await createClient()
+
+  const { data: lesson } = await supabase
+    .from('lessons')
+    .select('student_id')
+    .eq('id', lessonId)
+    .single()
+
   await supabase
     .from('lessons')
-    .update({ status: 'scheduled' })
+    .update({ status: 'scheduled', price: null })
     .eq('id', lessonId)
 
   revalidatePath('/schedule')
   revalidatePath('/')
+  if (lesson) revalidatePath(`/students/${lesson.student_id}`)
 }
 
-// `late` → student cancelled < 24h: still billable, kept visible on the
-// calendar (struck-through) rather than hidden like a plain cancellation.
+// `late` → student cancelled < 24h. Kept visible on the calendar
+// (struck-through) rather than hidden. Does not bill the balance for now.
 export async function cancelLesson(lessonId: string, late = false) {
   const supabase = await createClient()
   await supabase
     .from('lessons')
-    .update({ status: late ? 'cancelled_late' : 'cancelled' })
-    .eq('id', lessonId)
-
-  revalidatePath('/schedule')
-  revalidatePath('/')
-}
-
-export async function toggleLessonPaid(lessonId: string, isPaid: boolean) {
-  const supabase = await createClient()
-  await supabase
-    .from('lessons')
-    .update({ is_paid: isPaid })
+    .update({ status: late ? 'cancelled_late' : 'cancelled', price: null })
     .eq('id', lessonId)
 
   revalidatePath('/schedule')

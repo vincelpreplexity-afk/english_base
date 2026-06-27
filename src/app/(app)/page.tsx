@@ -1,4 +1,5 @@
 import Image from 'next/image'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { Card, CardHeader, CardContent } from '@/components/ui/card'
 import {
@@ -11,21 +12,27 @@ import { TasksWidget } from '@/components/dashboard/tasks-widget'
 import { QuickActions } from '@/components/dashboard/quick-actions'
 import { mskTodayDateString, mskDayRangeUtc } from '@/lib/time'
 
+const fmtMoney = (n: number) => `${Math.round(n).toLocaleString('ru-RU')} ₽`
+
 export default async function DashboardPage() {
   const supabase = await createClient()
 
   const todayStr = mskTodayDateString()
   const { start, end } = mskDayRangeUtc(todayStr)
+  // First instant of the current Moscow month, as a UTC ISO bound.
+  const monthStart = new Date(`${todayStr.slice(0, 7)}-01T00:00:00.000+03:00`).toISOString()
 
   const [
     { data: lessonRows },
     { data: taskRows },
     { data: studentRows },
     { data: materialRows },
+    { data: monthPaymentRows },
+    { data: debtorRows },
   ] = await Promise.all([
     supabase
       .from('lessons')
-      .select('id, scheduled_at, duration_min, is_paid, students(name)')
+      .select('id, scheduled_at, duration_min, students(name)')
       .eq('status', 'scheduled')
       .gte('scheduled_at', start)
       .lte('scheduled_at', end)
@@ -44,15 +51,34 @@ export default async function DashboardPage() {
       .from('materials')
       .select('category')
       .not('category', 'is', null),
+    supabase
+      .from('payments')
+      .select('amount')
+      .gte('paid_at', monthStart),
+    supabase
+      .from('student_balances')
+      .select('student_id, name, balance')
+      .lt('balance', 0)
+      .order('balance', { ascending: true }),
   ])
 
   const lessons = (lessonRows ?? []) as unknown as {
     id: string
     scheduled_at: string
     duration_min: number
-    is_paid: boolean
     students: { name: string } | null
   }[]
+
+  const monthIncome = (monthPaymentRows ?? []).reduce(
+    (sum, p) => sum + Number(p.amount),
+    0
+  )
+
+  const debtors = (debtorRows ?? []).map((d) => ({
+    id: d.student_id as string,
+    name: d.name as string,
+    balance: Number(d.balance),
+  }))
 
   const tasks = (taskRows ?? []) as {
     id: string
@@ -100,6 +126,32 @@ export default async function DashboardPage() {
         <p className="text-stone-500 mt-0.5 text-sm">{dateLabel}</p>
       </div>
 
+      {/* Quick stats */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+        <Card className="px-4 py-3">
+          <p className="text-xs text-stone-500">Доход за месяц</p>
+          <p className="font-heading text-xl font-semibold text-stone-900 mt-0.5">
+            {fmtMoney(monthIncome)}
+          </p>
+        </Card>
+        <Card className="px-4 py-3">
+          <p className="text-xs text-stone-500">Активных учеников</p>
+          <p className="font-heading text-xl font-semibold text-stone-900 mt-0.5">
+            {students.length}
+          </p>
+        </Card>
+        <Card className="px-4 py-3">
+          <p className="text-xs text-stone-500">Должников</p>
+          <p
+            className={`font-heading text-xl font-semibold mt-0.5 ${
+              debtors.length > 0 ? 'text-red-600' : 'text-stone-900'
+            }`}
+          >
+            {debtors.length}
+          </p>
+        </Card>
+      </div>
+
       <div className="grid gap-4 lg:gap-5 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-4 lg:space-y-5">
           <Card>
@@ -108,6 +160,32 @@ export default async function DashboardPage() {
             </CardHeader>
             <TodayWidget lessons={lessons} />
           </Card>
+
+          {debtors.length > 0 && (
+            <Card>
+              <CardHeader>
+                <span className="text-sm font-medium text-stone-700">Должники</span>
+                <span className="text-xs text-stone-400">{debtors.length}</span>
+              </CardHeader>
+              <ul className="divide-y divide-stone-100">
+                {debtors.map((d) => (
+                  <li key={d.id}>
+                    <Link
+                      href={`/students/${d.id}`}
+                      className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-stone-50 transition-colors"
+                    >
+                      <span className="text-sm font-medium text-stone-800 truncate">
+                        {d.name}
+                      </span>
+                      <span className="text-sm font-semibold text-red-600 shrink-0">
+                        {fmtMoney(Math.abs(d.balance))}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
 
           <Card>
             <CardHeader>

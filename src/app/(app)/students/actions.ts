@@ -129,3 +129,34 @@ export async function updateStudentNotes(studentId: string, formData: FormData) 
   await supabase.from('students').update({ notes }).eq('id', studentId)
   revalidatePath(`/students/${studentId}`)
 }
+
+// ─── Payments ────────────────────────────────────────────────────────────────
+
+// Per-lesson rate (rubles). Empty → null (rate not set).
+export async function updateStudentRate(studentId: string, rate: number | null) {
+  const supabase = await createClient()
+  const clean = rate != null && rate > 0 ? rate : null
+  await supabase.from('students').update({ rate: clean }).eq('id', studentId)
+  revalidatePath(`/students/${studentId}`)
+  revalidatePath('/')
+}
+
+export async function addPayment(studentId: string, amount: number, note?: string) {
+  if (!Number.isFinite(amount) || amount <= 0) throw new Error('Некорректная сумма')
+  const supabase = await createClient()
+  const { error } = await supabase.from('payments').insert({
+    student_id: studentId,
+    amount,
+    note: note?.trim() || null,
+  })
+  if (error) throw new Error(error.message)
+  revalidatePath(`/students/${studentId}`)
+  revalidatePath('/')
+}
+
+export async function deletePayment(paymentId: string, studentId: string) {
+  const supabase = await createClient()
+  await supabase.from('payments').delete().eq('id', paymentId)
+  revalidatePath(`/students/${studentId}`)
+  revalidatePath('/')
+}

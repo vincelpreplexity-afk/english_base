@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback, useEffect, useTransition } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { Calendar, dateFnsLocalizer, type View, type SlotInfo } from 'react-big-calendar'
 import { format, parse, startOfWeek, getDay, addMinutes, addWeeks } from 'date-fns'
 import { ru } from 'date-fns/locale'
@@ -15,7 +15,6 @@ import {
   cancelLesson,
   completeLesson,
   reopenLesson,
-  toggleLessonPaid,
 } from '@/app/(app)/schedule/actions'
 import { Button } from '@/components/ui/button'
 import { useScrollLock } from '@/lib/use-scroll-lock'
@@ -29,7 +28,6 @@ export type Lesson = {
   duration_min: number
   status: LessonStatus
   notes: string | null
-  is_paid: boolean
   // Many-to-one FK (lessons.student_id → students) → PostgREST returns a
   // single object here, not an array, despite what supabase-js infers.
   students: { name: string } | null
@@ -44,7 +42,7 @@ type CalEvent = {
   title: string
   start: Date
   end: Date
-  resource: { studentId: string; status: LessonStatus; notes: string | null; isPaid: boolean }
+  resource: { studentId: string; status: LessonStatus; notes: string | null }
 }
 
 // ─── Localizer ───────────────────────────────────────────────────────────────
@@ -375,19 +373,11 @@ function EditModal({
   const status = event.resource.status
   const [startVal, setStartVal] = useState(toInputValue(event.start))
   const [endVal, setEndVal] = useState(toInputValue(event.end))
-  const [isPaid, setIsPaid] = useState(event.resource.isPaid)
   const [pending, setPending] = useState(false)
   const [busy, setBusy] = useState<BusyAction | null>(null)
   const [error, setError] = useState('')
-  const [, startTransition] = useTransition()
 
   const locked = pending || busy !== null
-
-  function handleTogglePaid() {
-    const next = !isPaid
-    setIsPaid(next)
-    startTransition(() => toggleLessonPaid(event.id, next))
-  }
 
   // Run a lifecycle transition (complete / cancel / cancel_late / reopen),
   // then refresh and close on success.
@@ -422,19 +412,6 @@ function EditModal({
     }
   }
 
-  const paidToggle = (
-    <label className="flex items-center gap-2.5 cursor-pointer select-none">
-      <input
-        type="checkbox"
-        checked={isPaid}
-        onChange={handleTogglePaid}
-        className="size-4 rounded border-stone-300 cursor-pointer accent-[--color-accent]"
-      />
-      <span className="text-sm text-stone-700">Оплачено</span>
-      {isPaid && <span className="text-xs text-green-600 font-medium">✓</span>}
-    </label>
-  )
-
   const notesBlock = event.resource.notes && (
     <p className="text-xs text-stone-500 bg-stone-50 rounded-lg px-3 py-2 leading-relaxed">
       {event.resource.notes}
@@ -455,7 +432,6 @@ function EditModal({
             {format(event.end, 'HH:mm', { locale: ru })}
           </p>
           {notesBlock}
-          {paidToggle}
           {error && <p className="text-xs text-red-600">{error}</p>}
           <div className="flex items-center gap-2 pt-1">
             <Button
@@ -506,7 +482,6 @@ function EditModal({
         </div>
 
         {notesBlock}
-        {paidToggle}
 
         {error && <p className="text-xs text-red-600">{error}</p>}
 
@@ -594,7 +569,6 @@ export default function CalendarView({
           studentId: l.student_id,
           status: l.status,
           notes: l.notes,
-          isPaid: l.is_paid,
         },
       })),
     [lessons]
@@ -652,20 +626,21 @@ export default function CalendarView({
           components={{ toolbar: Toolbar as any }}
           eventPropGetter={(event) => {
             const ev = event as CalEvent
-            const bg = ev.resource.isPaid ? '#3B7A57' : '#5C3D6C'
+            // Colour by lifecycle status (payment is tracked per-student as a
+            // balance now, not per-lesson): purple = upcoming, green = done,
+            // amber struck-through = late cancellation (didn't happen).
             const style: React.CSSProperties = {
-              backgroundColor: bg,
-              borderColor: bg,
+              backgroundColor: '#5C3D6C',
+              borderColor: '#5C3D6C',
               color: '#fff',
               borderRadius: '6px',
               fontSize: '12px',
               border: 'none',
             }
-            // Completed: muted so "done" reads differently from "upcoming".
-            // Late cancellation: still on the calendar (billable) but amber +
-            // struck-through to signal the lesson didn't actually happen.
             if (ev.resource.status === 'completed') {
-              style.opacity = 0.5
+              style.backgroundColor = '#3B7A57'
+              style.borderColor = '#3B7A57'
+              style.opacity = 0.65
             } else if (ev.resource.status === 'cancelled_late') {
               style.backgroundColor = '#B45309'
               style.borderColor = '#B45309'

@@ -6,6 +6,7 @@ import { StudentInfoForm } from '@/components/students/student-info-form'
 import { TrackSection } from '@/components/students/track-section'
 import { NotesSection } from '@/components/students/notes-section'
 import { AvatarEmojiPicker } from '@/components/students/avatar-emoji-picker'
+import { PaymentsSection, type PaymentRow } from '@/components/students/payments-section'
 import {
   archiveStudent,
   updateStudentInfo,
@@ -25,20 +26,40 @@ export default async function StudentPage({
   const { id } = await params
   const supabase = await createClient()
 
-  const [{ data: student }, { data: rawTopics }] = await Promise.all([
-    supabase
-      .from('students')
-      .select('id, name, level, contacts, notes, avatar_emoji')
-      .eq('id', id)
-      .single(),
-    supabase
-      .from('student_topics')
-      .select('id, status, topics(title)')
-      .eq('student_id', id)
-      .order('created_at', { ascending: true }),
-  ])
+  const [{ data: student }, { data: rawTopics }, { data: balanceRow }, { data: rawPayments }] =
+    await Promise.all([
+      supabase
+        .from('students')
+        .select('id, name, level, contacts, notes, avatar_emoji, rate')
+        .eq('id', id)
+        .single(),
+      supabase
+        .from('student_topics')
+        .select('id, status, topics(title)')
+        .eq('student_id', id)
+        .order('created_at', { ascending: true }),
+      supabase
+        .from('student_balances')
+        .select('balance')
+        .eq('student_id', id)
+        .maybeSingle(),
+      supabase
+        .from('payments')
+        .select('id, amount, note, paid_at')
+        .eq('student_id', id)
+        .order('paid_at', { ascending: false }),
+    ])
 
   if (!student) notFound()
+
+  const rate = student.rate != null ? Number(student.rate) : null
+  const balance = balanceRow?.balance != null ? Number(balanceRow.balance) : 0
+  const payments: PaymentRow[] = (rawPayments ?? []).map((p) => ({
+    id: p.id,
+    amount: Number(p.amount),
+    note: p.note,
+    paid_at: p.paid_at,
+  }))
 
   const contacts = (student.contacts ?? {}) as Contacts
 
@@ -101,7 +122,22 @@ export default async function StudentPage({
         </CardContent>
       </Card>
 
-      {/* Block 2: Learning track */}
+      {/* Block 2: Payments */}
+      <Card>
+        <CardHeader>
+          <span className="text-sm font-medium text-stone-700">Оплаты</span>
+        </CardHeader>
+        <CardContent>
+          <PaymentsSection
+            studentId={id}
+            rate={rate}
+            balance={balance}
+            payments={payments}
+          />
+        </CardContent>
+      </Card>
+
+      {/* Block 3: Learning track */}
       <Card>
         <CardHeader>
           <span className="text-sm font-medium text-stone-700">Учебный трек</span>
@@ -120,7 +156,7 @@ export default async function StudentPage({
         </CardContent>
       </Card>
 
-      {/* Block 3: Notes */}
+      {/* Block 4: Notes */}
       <Card>
         <CardHeader>
           <span className="text-sm font-medium text-stone-700">Заметки</span>
