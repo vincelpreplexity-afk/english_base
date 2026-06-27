@@ -91,14 +91,40 @@ export async function updateLesson(
   revalidatePath('/schedule')
 }
 
-export async function cancelLesson(lessonId: string) {
+export async function completeLesson(lessonId: string) {
   const supabase = await createClient()
   await supabase
     .from('lessons')
-    .update({ status: 'cancelled' })
+    .update({ status: 'completed' })
     .eq('id', lessonId)
 
   revalidatePath('/schedule')
+  revalidatePath('/')
+}
+
+// Return a completed/cancelled lesson back to "scheduled" — undo a mis-click.
+export async function reopenLesson(lessonId: string) {
+  const supabase = await createClient()
+  await supabase
+    .from('lessons')
+    .update({ status: 'scheduled' })
+    .eq('id', lessonId)
+
+  revalidatePath('/schedule')
+  revalidatePath('/')
+}
+
+// `late` → student cancelled < 24h: still billable, kept visible on the
+// calendar (struck-through) rather than hidden like a plain cancellation.
+export async function cancelLesson(lessonId: string, late = false) {
+  const supabase = await createClient()
+  await supabase
+    .from('lessons')
+    .update({ status: late ? 'cancelled_late' : 'cancelled' })
+    .eq('id', lessonId)
+
+  revalidatePath('/schedule')
+  revalidatePath('/')
 }
 
 export async function toggleLessonPaid(lessonId: string, isPaid: boolean) {

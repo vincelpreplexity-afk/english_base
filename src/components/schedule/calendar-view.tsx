@@ -5,7 +5,7 @@ import { Calendar, dateFnsLocalizer, type View, type SlotInfo } from 'react-big-
 import { format, parse, startOfWeek, getDay, addMinutes, addWeeks } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import { useRouter } from 'next/navigation'
-import { CaretLeft, CaretRight, X, Trash } from '@phosphor-icons/react'
+import { CaretLeft, CaretRight, X, Trash, Check, ArrowCounterClockwise } from '@phosphor-icons/react'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 
 import {
@@ -13,6 +13,8 @@ import {
   createRecurringLessons,
   updateLesson,
   cancelLesson,
+  completeLesson,
+  reopenLesson,
   toggleLessonPaid,
 } from '@/app/(app)/schedule/actions'
 import { Button } from '@/components/ui/button'
@@ -25,13 +27,15 @@ export type Lesson = {
   student_id: string
   scheduled_at: string
   duration_min: number
-  status: 'scheduled' | 'completed' | 'cancelled'
+  status: LessonStatus
   notes: string | null
   is_paid: boolean
   // Many-to-one FK (lessons.student_id → students) → PostgREST returns a
   // single object here, not an array, despite what supabase-js infers.
   students: { name: string } | null
 }
+
+export type LessonStatus = 'scheduled' | 'completed' | 'cancelled' | 'cancelled_late'
 
 type Student = { id: string; name: string; level: string | null }
 
@@ -40,7 +44,7 @@ type CalEvent = {
   title: string
   start: Date
   end: Date
-  resource: { studentId: string; status: string; notes: string | null; isPaid: boolean }
+  resource: { studentId: string; status: LessonStatus; notes: string | null; isPaid: boolean }
 }
 
 // ─── Localizer ───────────────────────────────────────────────────────────────
@@ -337,7 +341,27 @@ function CreateModal({
   )
 }
 
+// ─── Status badge ─────────────────────────────────────────────────────────────
+
+const STATUS_BADGE: Record<LessonStatus, { label: string; cls: string }> = {
+  scheduled: { label: 'Запланирован', cls: 'bg-stone-100 text-stone-600' },
+  completed: { label: 'Проведён', cls: 'bg-green-100 text-green-700' },
+  cancelled: { label: 'Отменён', cls: 'bg-stone-100 text-stone-500' },
+  cancelled_late: { label: 'Поздняя отмена · оплачивается', cls: 'bg-amber-100 text-amber-700' },
+}
+
+function StatusBadge({ status }: { status: LessonStatus }) {
+  const b = STATUS_BADGE[status]
+  return (
+    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${b.cls}`}>
+      {b.label}
+    </span>
+  )
+}
+
 // ─── Edit modal ───────────────────────────────────────────────────────────────
+
+type BusyAction = 'complete' | 'cancel' | 'cancel_late' | 'reopen'
 
 function EditModal({
   event,
@@ -348,18 +372,36 @@ function EditModal({
   onClose: () => void
   onDone: () => void
 }) {
+  const status = event.resource.status
   const [startVal, setStartVal] = useState(toInputValue(event.start))
   const [endVal, setEndVal] = useState(toInputValue(event.end))
   const [isPaid, setIsPaid] = useState(event.resource.isPaid)
   const [pending, setPending] = useState(false)
-  const [cancelling, setCancelling] = useState(false)
+  const [busy, setBusy] = useState<BusyAction | null>(null)
   const [error, setError] = useState('')
   const [, startTransition] = useTransition()
+
+  const locked = pending || busy !== null
 
   function handleTogglePaid() {
     const next = !isPaid
     setIsPaid(next)
     startTransition(() => toggleLessonPaid(event.id, next))
+  }
+
+  // Run a lifecycle transition (complete / cancel / cancel_late / reopen),
+  // then refresh and close on success.
+  async function runAction(kind: BusyAction, fn: () => Promise<void>) {
+    setBusy(kind)
+    setError('')
+    try {
+      await fn()
+      onDone()
+      onClose()
+    } catch {
+      setError('Не удалось выполнить действие')
+      setBusy(null)
+    }
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -380,18 +422,63 @@ function EditModal({
     }
   }
 
-  async function handleCancel() {
-    setCancelling(true)
-    try {
-      await cancelLesson(event.id)
-      onDone()
-      onClose()
-    } catch {
-      setError('Ошибка при отмене')
-      setCancelling(false)
-    }
+  const paidToggle = (
+    <label className="flex items-center gap-2.5 cursor-pointer select-none">
+      <input
+        type="checkbox"
+        checked={isPaid}
+        onChange={handleTogglePaid}
+        className="size-4 rounded border-stone-300 cursor-pointer accent-[--color-accent]"
+      />
+      <span className="text-sm text-stone-700">Оплачено</span>
+      {isPaid && <span className="text-xs text-green-600 font-medium">✓</span>}
+    </label>
+  )
+
+  const notesBlock = event.resource.notes && (
+    <p className="text-xs text-stone-500 bg-stone-50 rounded-lg px-3 py-2 leading-relaxed">
+      {event.resource.notes}
+    </p>
+  )
+
+  // ── Settled lesson (completed / cancelled / cancelled_late): read-only
+  //    summary + a way back to "scheduled" to undo a mis-click. ──────────────
+  if (status !== 'scheduled') {
+    return (
+      <Modal title={event.title} onClose={onClose}>
+        <div className="space-y-4">
+          <StatusBadge status={status} />
+          <p className="text-sm text-stone-600">
+            {format(event.start, 'EEEE, d MMMM, HH:mm', { locale: ru })
+              .replace(/^./, (c) => c.toUpperCase())}
+            {' – '}
+            {format(event.end, 'HH:mm', { locale: ru })}
+          </p>
+          {notesBlock}
+          {paidToggle}
+          {error && <p className="text-xs text-red-600">{error}</p>}
+          <div className="flex items-center gap-2 pt-1">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => runAction('reopen', () => reopenLesson(event.id))}
+              disabled={locked}
+            >
+              <ArrowCounterClockwise size={13} />
+              {busy === 'reopen' ? '…' : 'Вернуть в запланированные'}
+            </Button>
+            <div className="flex-1" />
+            <Button type="button" variant="secondary" size="sm" onClick={onClose} disabled={locked}>
+              Закрыть
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    )
   }
 
+  // ── Scheduled lesson: edit time (= reschedule on Save) + lifecycle actions ──
   return (
     <Modal title={event.title} onClose={onClose}>
       <form onSubmit={handleSave} className="space-y-4">
@@ -418,42 +505,56 @@ function EditModal({
           </div>
         </div>
 
-        {event.resource.notes && (
-          <p className="text-xs text-stone-500 bg-stone-50 rounded-lg px-3 py-2 leading-relaxed">
-            {event.resource.notes}
-          </p>
-        )}
-
-        <label className="flex items-center gap-2.5 cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={isPaid}
-            onChange={handleTogglePaid}
-            className="size-4 rounded border-stone-300 cursor-pointer accent-[--color-accent]"
-          />
-          <span className="text-sm text-stone-700">Оплачено</span>
-          {isPaid && <span className="text-xs text-green-600 font-medium">✓</span>}
-        </label>
+        {notesBlock}
+        {paidToggle}
 
         {error && <p className="text-xs text-red-600">{error}</p>}
 
-        <div className="flex items-center gap-2 pt-1">
+        {/* Lifecycle actions */}
+        <div className="space-y-2 pt-1">
           <Button
             type="button"
-            variant="danger"
-            size="sm"
-            onClick={handleCancel}
-            disabled={cancelling || pending}
-            className="shrink-0"
+            className="w-full"
+            size="md"
+            onClick={() => runAction('complete', () => completeLesson(event.id))}
+            disabled={locked}
           >
-            <Trash size={13} />
-            {cancelling ? '…' : 'Отменить урок'}
+            <Check size={15} weight="bold" />
+            {busy === 'complete' ? '…' : 'Провести'}
           </Button>
-          <div className="flex-1" />
-          <Button type="button" variant="secondary" size="sm" onClick={onClose} disabled={pending || cancelling}>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="flex-1"
+              onClick={() => runAction('cancel_late', () => cancelLesson(event.id, true))}
+              disabled={locked}
+            >
+              {busy === 'cancel_late' ? '…' : 'Поздняя отмена'}
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              size="sm"
+              className="flex-1"
+              onClick={() => runAction('cancel', () => cancelLesson(event.id, false))}
+              disabled={locked}
+            >
+              <Trash size={13} />
+              {busy === 'cancel' ? '…' : 'Отменить'}
+            </Button>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 pt-3 border-t border-stone-100">
+          <p className="text-xs text-stone-400 flex-1 leading-tight">
+            Изменили время — сохраните перенос
+          </p>
+          <Button type="button" variant="secondary" size="sm" onClick={onClose} disabled={locked}>
             Закрыть
           </Button>
-          <Button type="submit" size="sm" disabled={pending || cancelling}>
+          <Button type="submit" size="sm" disabled={locked}>
             {pending ? 'Сохранение…' : 'Сохранить'}
           </Button>
         </div>
@@ -486,7 +587,7 @@ export default function CalendarView({
     () =>
       lessons.map((l) => ({
         id: l.id,
-        title: l.students?.name ?? 'Ученик',
+        title: `${l.status === 'completed' ? '✓ ' : ''}${l.students?.name ?? 'Ученик'}`,
         start: new Date(l.scheduled_at),
         end: addMinutes(new Date(l.scheduled_at), l.duration_min),
         resource: {
@@ -552,16 +653,26 @@ export default function CalendarView({
           eventPropGetter={(event) => {
             const ev = event as CalEvent
             const bg = ev.resource.isPaid ? '#3B7A57' : '#5C3D6C'
-            return {
-              style: {
-                backgroundColor: bg,
-                borderColor: bg,
-                color: '#fff',
-                borderRadius: '6px',
-                fontSize: '12px',
-                border: 'none',
-              },
+            const style: React.CSSProperties = {
+              backgroundColor: bg,
+              borderColor: bg,
+              color: '#fff',
+              borderRadius: '6px',
+              fontSize: '12px',
+              border: 'none',
             }
+            // Completed: muted so "done" reads differently from "upcoming".
+            // Late cancellation: still on the calendar (billable) but amber +
+            // struck-through to signal the lesson didn't actually happen.
+            if (ev.resource.status === 'completed') {
+              style.opacity = 0.5
+            } else if (ev.resource.status === 'cancelled_late') {
+              style.backgroundColor = '#B45309'
+              style.borderColor = '#B45309'
+              style.opacity = 0.75
+              style.textDecoration = 'line-through'
+            }
+            return { style }
           }}
         />
       </div>
